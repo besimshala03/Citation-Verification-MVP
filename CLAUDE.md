@@ -34,8 +34,9 @@ Required libraries:
 - sentence-transformers
 - numpy
 - scikit-learn
-- openai (or compatible LLM client)
+- openai
 - python-multipart
+- python-dotenv
 
 Optional but allowed:
 
@@ -43,6 +44,24 @@ Optional but allowed:
 - tqdm
 
 Do NOT use complex databases. In-memory processing is sufficient.
+
+---
+
+## Configuration
+
+All sensitive configuration is loaded from a `.env` file in the project root.
+
+Required `.env` variables:
+
+```
+OPENAI_API_KEY=sk-...
+MODEL_NAME=gpt-5.2
+```
+
+- `OPENAI_API_KEY`: OpenAI API key used for LLM evaluation.
+- `MODEL_NAME`: The OpenAI model to use. Defaults to `gpt-5.2` but can be changed without touching code.
+
+Load with `python-dotenv` at application startup.
 
 ---
 
@@ -118,28 +137,39 @@ If not found, return an error message in the result but continue citation detect
 
 ### 4. Citation Detection (Harvard Style)
 
-Detect patterns like:
+Detect the following patterns:
 
-- (Smith, 2020)
-- (Smith & Jones, 2019)
-- Smith (2020)
+- `(Smith, 2020)` — single author
+- `(Smith & Jones, 2019)` — two authors
+- `(Smith et al., 2020)` — three or more authors abbreviated
+- `Smith (2020)` — narrative citation
+- `(Smith, 2020, p. 45)` — with page number (page number is stripped, not used)
+- Multiple citations in one bracket: `(Smith, 2020; Jones, 2019)` — split into individual citations and process each separately
 
 Use regex-based detection.
 
-Extract:
+Extract per citation:
 
-- author string
+- author string (surname only, or "Surname et al.")
 - year (4 digits)
 - full citation string
-- surrounding sentence or paragraph
+- surrounding sentence or paragraph (the citing paragraph)
 
-Return a list of citation occurrences.
+Year suffixes (e.g., `2020a`, `2020b`) are not validated or disambiguated in the MVP.
+See EDGE_CASES.md EC-01.
+
+Each occurrence of a citation in the document is treated as a separate entry and evaluated
+independently, since the citing paragraph differs per occurrence.
+
+Return a list of all citation occurrences (not deduplicated).
 
 ---
 
 ### 5. Bibliography Parsing
 
 Goal: match each citation to a bibliography entry.
+
+The bibliography is embedded in the uploaded document itself (after the References heading).
 
 For MVP:
 
@@ -150,7 +180,9 @@ Match entries containing:
 
 Use simple string matching.
 
-Return the matched bibliography text entry.
+Return the matched bibliography text entry (full line/entry as it appears in the document).
+This full text is used in the OpenAlex search query in step 6, as it typically contains the
+paper title.
 
 If none found, mark as "unmatched".
 
@@ -162,11 +194,11 @@ Use OpenAlex API:
 
 https://api.openalex.org
 
-Search using:
+Primary search strategy:
 
-- author name
-- year
-- title keywords (if available)
+- If a bibliography entry was matched, use its full text as the search query (this typically
+  contains the title, giving much higher match quality than author + year alone).
+- If no bibliography match, fall back to searching by author name and year.
 
 Take the top result.
 
@@ -185,13 +217,22 @@ If no result found, mark citation as "paper_not_found".
 
 If an open access PDF URL is available:
 
-- Download the PDF
+- Download the PDF using an HTTP GET request
+- Apply a timeout of 15 seconds and a maximum download size of 20 MB
 - Extract text using pypdf
+- If download fails (timeout, non-200 status, size exceeded, or non-PDF content), fall back
+  to abstract only and mark source as "abstract_only"
 
-If not available:
+If no open access PDF URL is available:
 
 - Use abstract only
 - Mark source as "abstract_only"
+
+If neither PDF nor abstract is available:
+
+- Mark source as "not_found"
+- Skip semantic matching and LLM evaluation
+- Set evaluation label to "UNCERTAIN" with explanation "No source text available"
 
 ---
 
@@ -201,70 +242,97 @@ Goal: find the most relevant passage in the paper for the citing paragraph.
 
 Steps:
 
-1. Split paper text into chunks (~500–1000 characters)
+1. Split paper text into chunks of **700 characters** with **150 character overlap**
+   - Overlap prevents relevant sentences from being split across chunk boundaries
+   - If the text is shorter than one chunk, treat the entire text as a single chunk
 2. Compute embeddings using sentence-transformers
-   Recommended model: all-MiniLM-L6-v2
+   Model: `all-MiniLM-L6-v2`
 3. Embed the citing paragraph
-4. Compute cosine similarity
-5. Select top matching chunk
+4. Compute cosine similarity between citing paragraph and all chunks
+5. Select the top matching chunk as the matched passage
+
+If the paper text is empty after retrieval, skip matching and proceed to LLM evaluation
+with `matched_passage: null`. The LLM will receive only the abstract or a note that no
+passage is available.
 
 ---
 
 ### 9. LLM-Based Support Evaluation
 
-Use an LLM to determine whether the paper supports the claim.
+Use the OpenAI API with the model specified in `MODEL_NAME`.
 
 Input to LLM:
 
 - citing paragraph
-- matched paper passage (or abstract)
-- citation metadata
+- matched paper passage (or abstract if no passage; or a note if neither is available)
+- citation metadata (author, year, paper title)
 
-Prompt should instruct model to classify into:
+The LLM must return a structured JSON response. Instruct the model via system prompt to
+respond ONLY with valid JSON in the following format:
 
-- SUPPORTS
-- CONTRADICTS
-- NOT_RELEVANT
-- UNCERTAIN
+```json
+{
+  "label": "SUPPORTS" | "CONTRADICTS" | "NOT_RELEVANT" | "UNCERTAIN",
+  "explanation": "1–3 sentence explanation",
+  "confidence": 0.0–1.0
+}
+```
 
-Also request a short explanation (1–3 sentences).
+- `label`: classification of whether the source supports the claim
+- `explanation`: concise reasoning for the classification
+- `confidence`: the model's self-assessed confidence in its classification (0.0 = no
+  confidence, 1.0 = fully confident). The model determines this value itself based on the
+  quality and relevance of the available evidence.
 
-Use temperature near 0.
+Use temperature = 0.
+
+If the LLM response cannot be parsed as valid JSON, return:
+```json
+{
+  "label": "UNCERTAIN",
+  "explanation": "LLM response could not be parsed.",
+  "confidence": 0.0
+}
+```
 
 ---
 
 ### 10. Output Format
 
 Return JSON:
+
+```json
 {
-“document_name”: “…”,
-“citations”: [
-{
-“citation_text”: “(Smith, 2020)”,
-“author”: “Smith”,
-“year”: “2020”,
-“citing_paragraph”: “…”,
-  "bibliography_match": "...",
-  "paper_found": true,
+  "document_name": "...",
+  "citations": [
+    {
+      "citation_text": "(Smith, 2020)",
+      "author": "Smith",
+      "year": "2020",
+      "citing_paragraph": "...",
+      "bibliography_match": "...",
+      "paper_found": true,
 
-  "paper_metadata": {
-    "title": "...",
-    "authors": ["..."],
-    "year": 2020
-  },
+      "paper_metadata": {
+        "title": "...",
+        "authors": ["..."],
+        "year": 2020
+      },
 
-  "source_type": "pdf" | "abstract_only" | "not_found",
+      "source_type": "pdf" | "abstract_only" | "not_found",
 
-  "matched_passage": "...",
+      "matched_passage": "...",
 
-  "evaluation": {
-    "label": "SUPPORTS",
-    "explanation": "...",
-    "confidence": 0.0–1.0
-  }
+      "evaluation": {
+        "label": "SUPPORTS",
+        "explanation": "...",
+        "confidence": 0.0
+      }
+    }
+  ]
 }
-]
-}
+```
+
 If steps fail, include error fields rather than crashing.
 
 ---
@@ -275,10 +343,11 @@ The system must never crash due to:
 
 - missing bibliography
 - API failures
-- inaccessible PDFs
+- inaccessible or oversized PDFs
 - parsing errors
+- LLM response formatting errors
 
-Instead, include status flags in the result.
+Instead, include status flags and fallback values in the result.
 
 ---
 
@@ -293,6 +362,14 @@ Do NOT implement:
 - paywalled paper access
 - high-accuracy reference parsing
 - plagiarism detection
+- year suffix disambiguation (see EDGE_CASES.md EC-01)
+
+---
+
+## Edge Cases
+
+Known unhandled edge cases are documented in `EDGE_CASES.md`.
+Do not attempt to handle those during MVP implementation.
 
 ---
 
@@ -300,14 +377,14 @@ Do NOT implement:
 
 Organize into modules:
 
-- main.py (FastAPI app)
-- file_processing.py
-- citation_detection.py
-- bibliography_parser.py
-- paper_lookup.py
-- paper_processing.py
-- semantic_matching.py
-- evaluation.py
+- `main.py` — FastAPI app, endpoint definition, pipeline orchestration
+- `file_processing.py` — PDF and DOCX text extraction, section splitting
+- `citation_detection.py` — regex-based citation detection and parsing
+- `bibliography_parser.py` — matching citations to bibliography entries
+- `paper_lookup.py` — OpenAlex API search
+- `paper_processing.py` — PDF download and text extraction
+- `semantic_matching.py` — chunking, embedding, cosine similarity
+- `evaluation.py` — LLM prompt construction and response parsing
 
 Clean, readable, well-documented code.
 
@@ -324,9 +401,17 @@ Optimization is not required.
 ## Deliverable
 
 A working FastAPI application that can be started with:
-uvicorn main:app –reload
+
+```
+uvicorn main:app --reload
+```
+
 And tested via:
+
+```
 POST /analyze
+```
+
 ---
 
 ## Implementation Priority

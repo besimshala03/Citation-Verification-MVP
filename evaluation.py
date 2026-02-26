@@ -112,11 +112,11 @@ def _build_user_prompt(
 def _call_llm(user_prompt: str) -> str | None:
     """Call the OpenAI API and return the response content.
 
-    Returns None on any failure.
+    Returns None on any failure, printing the error for debugging.
     """
     try:
         client = OpenAI()
-        model = os.getenv("MODEL_NAME", "gpt-5.2")
+        model = os.getenv("MODEL_NAME", "gpt-4o")
 
         response = client.chat.completions.create(
             model=model,
@@ -125,11 +125,12 @@ def _call_llm(user_prompt: str) -> str | None:
                 {"role": "user", "content": user_prompt},
             ],
             temperature=0,
-            max_tokens=500,
+            max_completion_tokens=500,
         )
 
         return response.choices[0].message.content
-    except Exception:
+    except Exception as e:
+        print(f"[evaluation] LLM call failed: {e}")
         return None
 
 

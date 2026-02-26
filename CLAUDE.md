@@ -188,28 +188,38 @@ If none found, mark as "unmatched".
 
 ---
 
-### 6. Paper Lookup via OpenAlex API
+### 6. Paper Lookup
 
-Use OpenAlex API:
+Use a three-strategy priority chain for maximum accuracy:
 
-https://api.openalex.org
+**Strategy 1 — DOI-based (most accurate):**
+- Extract DOI from the matched bibliography entry using regex
+  (matches `https://doi.org/10.xxxx/...`, `doi:10.xxxx/...`, or bare `10.xxxx/...`)
+- Query CrossRef API: `https://api.crossref.org/works/{DOI}`
+  for exact paper metadata (title, authors, year, abstract)
+- Query Unpaywall API: `https://api.unpaywall.org/v2/{DOI}?email=...`
+  for open access PDF URL
 
-Primary search strategy:
+**Strategy 2 — OpenAlex full-text search:**
+- If no DOI found, use the full bibliography entry text as the search query
+- URL: `https://api.openalex.org/works?search={entry_text}&per_page=1`
+- The bibliography entry typically contains the paper title, giving good results
 
-- If a bibliography entry was matched, use its full text as the search query (this typically
-  contains the title, giving much higher match quality than author + year alone).
-- If no bibliography match, fall back to searching by author name and year.
+**Strategy 3 — OpenAlex author + year fallback:**
+- If no bibliography entry matched, search by author name filtered by year
+- Prone to wrong matches for common surnames; only used as last resort
 
-Take the top result.
-
-Extract:
+Extract from whichever strategy succeeds:
 
 - paper title
 - authors
 - abstract (if available)
 - open access PDF URL (if available)
 
-If no result found, mark citation as "paper_not_found".
+If no result found across all strategies, mark citation as "paper_not_found".
+
+CrossRef abstracts are returned in JATS XML format — strip tags before use.
+OpenAlex abstracts are returned as an inverted index — reconstruct to plain text.
 
 ---
 

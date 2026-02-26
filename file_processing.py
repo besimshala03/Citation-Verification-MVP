@@ -53,19 +53,40 @@ def _extract_docx(file_bytes: bytes) -> str:
         return ""
 
 
-# Regex to detect bibliography/references section headings.
-# Matches lines like "References", "6. Bibliography", "Works Cited", etc.
-_BIBLIOGRAPHY_HEADING_RE = re.compile(
-    r"(?im)^\s*(?:\d+[\.\)]\s*)?(?:references|bibliography|literature|works\s+cited)\s*$"
+# Strategy 1: heading on its own line (well-formatted DOCX or PDF).
+# Matches "References", "6. Bibliography", "1 Literaturverzeichnis", etc.
+_BIBLIOGRAPHY_HEADING_STRICT_RE = re.compile(
+    r"(?im)^\s*(?:\d+[\.\)\s]\s*)?"
+    r"(?:references|bibliography|literature|works\s+cited"
+    r"|literaturverzeichnis|literatur|quellenverzeichnis|quellen)"
+    r"\s*$"
+)
+
+# Strategy 2: heading appearing inline in the text.
+# pypdf often loses newlines around headings, producing text like:
+#   "...last sentence.   1 Literaturverzeichnis Firstname, L. (2020)..."
+# This regex finds the heading as a word boundary without requiring line start.
+# Restricted to unambiguous long keywords to avoid false positives.
+_BIBLIOGRAPHY_HEADING_INLINE_RE = re.compile(
+    r"(?i)"
+    r"(?<!\w)"                          # not preceded by a word character
+    r"(?:\d+\s+)?"                      # optional section number like "1 "
+    r"(?:references|bibliography|works\s+cited"
+    r"|literaturverzeichnis|quellenverzeichnis)"
+    r"(?!\w)"                           # not followed by a word character
 )
 
 
 def split_sections(full_text: str) -> tuple[str, str | None]:
     """Split document text into main text and bibliography section.
 
-    Searches for the LAST occurrence of a bibliography heading
-    (References, Bibliography, Literature, Works Cited) to avoid
-    false positives from the word appearing in body text.
+    Uses two strategies:
+    1. Strict: heading on its own line (handles well-formatted documents).
+    2. Inline: heading embedded in text (handles PDF-extracted text where
+       pypdf drops newlines around section headings).
+
+    In both cases the LAST match is used to avoid false positives from the
+    heading word appearing earlier in body text.
 
     Args:
         full_text: Complete document text.
@@ -74,17 +95,22 @@ def split_sections(full_text: str) -> tuple[str, str | None]:
         Tuple of (main_text, bibliography_text).
         bibliography_text is None if no heading was found.
     """
-    matches = list(_BIBLIOGRAPHY_HEADING_RE.finditer(full_text))
-    if not matches:
-        return full_text, None
+    # Strategy 1: strict line-based detection
+    strict_matches = list(_BIBLIOGRAPHY_HEADING_STRICT_RE.finditer(full_text))
+    if strict_matches:
+        last_match = strict_matches[-1]
+        main_text = full_text[:last_match.start()].strip()
+        bibliography_text = full_text[last_match.end():].strip()
+        if bibliography_text:
+            return main_text, bibliography_text
 
-    last_match = matches[-1]
-    split_pos = last_match.end()
+    # Strategy 2: inline detection for PDF-extracted text
+    inline_matches = list(_BIBLIOGRAPHY_HEADING_INLINE_RE.finditer(full_text))
+    if inline_matches:
+        last_match = inline_matches[-1]
+        main_text = full_text[:last_match.start()].rstrip()
+        bibliography_text = full_text[last_match.end():].strip()
+        if bibliography_text:
+            return main_text, bibliography_text
 
-    main_text = full_text[:last_match.start()].strip()
-    bibliography_text = full_text[split_pos:].strip()
-
-    if not bibliography_text:
-        return full_text, None
-
-    return main_text, bibliography_text
+    return full_text, None

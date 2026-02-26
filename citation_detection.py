@@ -20,8 +20,8 @@ class CitationOccurrence:
 # Also handles optional year suffix: (Smith, 2020a)
 _PAREN_SINGLE_RE = re.compile(
     r"\("
-    r"([A-Z][a-zA-Z''-]+"  # primary author surname
-    r"(?:\s+(?:&|and)\s+[A-Z][a-zA-Z''-]+)?"  # optional second author
+    r"([A-Z\u00C0-\u00D6\u00D8-\u00DE][a-zA-Z\u00C0-\u024F''-]+"  # primary author surname
+    r"(?:\s+(?:&|and)\s+[A-Z\u00C0-\u00D6\u00D8-\u00DE][a-zA-Z\u00C0-\u024F''-]+)?"  # optional second author
     r"(?:\s+et\s+al\.)?"  # optional et al.
     r")"
     r",\s*"
@@ -38,8 +38,8 @@ _PAREN_MULTI_RE = re.compile(
 
 # Pattern for a single citation segment within a multi-citation bracket.
 _SEGMENT_RE = re.compile(
-    r"([A-Z][a-zA-Z''-]+"
-    r"(?:\s+(?:&|and)\s+[A-Z][a-zA-Z''-]+)?"
+    r"([A-Z\u00C0-\u00D6\u00D8-\u00DE][a-zA-Z\u00C0-\u024F''-]+"
+    r"(?:\s+(?:&|and)\s+[A-Z\u00C0-\u00D6\u00D8-\u00DE][a-zA-Z\u00C0-\u024F''-]+)?"
     r"(?:\s+et\s+al\.)?"
     r")"
     r",\s*"
@@ -50,8 +50,8 @@ _SEGMENT_RE = re.compile(
 
 # Pattern for narrative citations: Smith (2020), Smith and Jones (2019)
 _NARRATIVE_RE = re.compile(
-    r"([A-Z][a-zA-Z''-]+"
-    r"(?:\s+(?:&|and)\s+[A-Z][a-zA-Z''-]+)?"
+    r"([A-Z\u00C0-\u00D6\u00D8-\u00DE][a-zA-Z\u00C0-\u024F''-]+"
+    r"(?:\s+(?:&|and)\s+[A-Z\u00C0-\u00D6\u00D8-\u00DE][a-zA-Z\u00C0-\u024F''-]+)?"
     r"(?:\s+et\s+al\.)?"
     r")"
     r"\s+\((\d{4})\w?\)"

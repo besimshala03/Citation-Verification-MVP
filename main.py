@@ -9,7 +9,7 @@ from citation_detection import CitationOccurrence, detect_citations
 from bibliography_parser import match_citation
 from evaluation import EvaluationResult, evaluate_support
 from file_processing import extract_text, split_sections
-from paper_lookup import PaperMetadata, search_openalex
+from paper_lookup import PaperMetadata, find_paper
 from paper_processing import retrieve_paper_text
 from semantic_matching import find_best_passage
 
@@ -17,6 +17,23 @@ from semantic_matching import find_best_passage
 load_dotenv()
 
 app = FastAPI(title="Citation Verification MVP")
+
+
+@app.post("/debug-extract")
+async def debug_extract(file: UploadFile = File(...)):
+    """Debug endpoint: returns raw extracted text and detected citations."""
+    filename = file.filename or ""
+    file_bytes = await file.read()
+    full_text = extract_text(file_bytes, filename)
+    main_text, bibliography_text = split_sections(full_text)
+    citations = detect_citations(main_text)
+    return {
+        "text_length": len(full_text),
+        "text_preview": full_text[:500],
+        "bibliography_found": bibliography_text is not None,
+        "citations_detected": len(citations),
+        "citations": [{"text": c.citation_text, "author": c.author, "year": c.year} for c in citations],
+    }
 
 
 @app.post("/analyze")
@@ -78,7 +95,7 @@ def _process_citation(
         )
 
         # Search OpenAlex
-        paper = search_openalex(bib_match, citation.author, citation.year)
+        paper = find_paper(bib_match, citation.author, citation.year)
 
         # Retrieve paper text
         paper_text, source_type = retrieve_paper_text(

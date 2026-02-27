@@ -1,9 +1,12 @@
 """Citation Verification MVP — FastAPI application."""
 
-import os
+import uuid
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
+from pydantic import BaseModel
 
 from citation_detection import CitationOccurrence, detect_citations
 from bibliography_parser import match_citation
@@ -17,6 +20,26 @@ from semantic_matching import find_best_passage
 load_dotenv()
 
 app = FastAPI(title="Citation Verification MVP")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# In-memory storage for uploaded files (keyed by file_id)
+_uploaded_files: dict[str, tuple[bytes, str]] = {}
+
+# In-memory storage for parsed document state (keyed by file_id)
+_document_state: dict[str, dict] = {}
+
+
+class VerifyCitationRequest(BaseModel):
+    """Request body for verifying a single citation."""
+
+    file_id: str
+    citation_id: int
 
 
 @app.post("/debug-extract")
@@ -78,6 +101,98 @@ async def analyze(file: UploadFile = File(...)):
         )
 
     return response
+
+
+@app.post("/upload")
+async def upload_file(file: UploadFile = File(...)):
+    """Upload a file, detect citations, and return them for the frontend.
+
+    Does NOT run the full verification pipeline — only text extraction,
+    citation detection, and bibliography matching (all cheap/local).
+    """
+    filename = file.filename or ""
+    if not filename.lower().endswith((".pdf", ".docx")):
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported file format. Only PDF and DOCX files are accepted.",
+        )
+
+    file_bytes = await file.read()
+    full_text = extract_text(file_bytes, filename)
+    if not full_text.strip():
+        raise HTTPException(
+            status_code=400, detail="Could not extract text from the document."
+        )
+
+    main_text, bibliography_text = split_sections(full_text)
+    citations = detect_citations(main_text)
+
+    # Store file and document state for later use
+    file_id = str(uuid.uuid4())
+    _uploaded_files[file_id] = (file_bytes, filename)
+    _document_state[file_id] = {
+        "bibliography_text": bibliography_text,
+        "citations": citations,
+    }
+
+    citation_list = []
+    for i, c in enumerate(citations):
+        bib_match = match_citation(c.author, c.year, bibliography_text)
+        citation_list.append({
+            "id": i,
+            "citation_text": c.citation_text,
+            "author": c.author,
+            "year": c.year,
+            "citing_paragraph": c.citing_paragraph,
+            "bibliography_match": bib_match,
+        })
+
+    response = {
+        "file_id": file_id,
+        "document_name": filename,
+        "citations": citation_list,
+    }
+    if bibliography_text is None:
+        response["warning"] = (
+            "No bibliography/references section found in the document."
+        )
+    return response
+
+
+@app.get("/file/{file_id}")
+async def serve_file(file_id: str):
+    """Serve an uploaded file back to the frontend for PDF rendering."""
+    if file_id not in _uploaded_files:
+        raise HTTPException(status_code=404, detail="File not found.")
+    file_bytes, filename = _uploaded_files[file_id]
+    media_type = (
+        "application/pdf"
+        if filename.lower().endswith(".pdf")
+        else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+    return Response(content=file_bytes, media_type=media_type)
+
+
+@app.post("/verify-citation")
+async def verify_citation(req: VerifyCitationRequest):
+    """Verify a single citation on demand.
+
+    Runs the expensive parts: paper lookup, text retrieval,
+    semantic matching, and LLM evaluation.
+    """
+    if req.file_id not in _document_state:
+        raise HTTPException(status_code=404, detail="File not found. Upload first.")
+
+    state = _document_state[req.file_id]
+    citations = state["citations"]
+    bibliography_text = state["bibliography_text"]
+
+    if req.citation_id < 0 or req.citation_id >= len(citations):
+        raise HTTPException(status_code=400, detail="Invalid citation ID.")
+
+    citation = citations[req.citation_id]
+    result = _process_citation(citation, bibliography_text)
+    return result
 
 
 def _process_citation(

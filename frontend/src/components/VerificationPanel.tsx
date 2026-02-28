@@ -58,7 +58,7 @@ function EmptyState() {
 }
 
 function LoadingState() {
-  const steps = ['Finding paper...', 'Retrieving text...', 'Analyzing content...', 'Evaluating claim...']
+  const steps = ['Loading reference paper...', 'Analyzing content...', 'Matching passages...', 'Evaluating claim...']
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -190,16 +190,12 @@ function ResultView({ result }: { result: VerificationResult }) {
               className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                 result.source_type === 'pdf'
                   ? 'bg-green-500/20 text-green-400'
-                  : result.source_type === 'abstract_only'
-                    ? 'bg-yellow-500/20 text-yellow-400'
-                    : 'bg-gray-500/20 text-gray-400'
+                  : 'bg-gray-500/20 text-gray-400'
               }`}
             >
               {result.source_type === 'pdf'
                 ? 'Full Text'
-                : result.source_type === 'abstract_only'
-                  ? 'Abstract Only'
-                  : 'No Source'}
+                : 'Reference Not Uploaded'}
             </span>
             {result.bibliography_match && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 font-medium">

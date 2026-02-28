@@ -21,3 +21,14 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+
+# Database
+*.db
+
+# File storage
+storage/
+
+# Frontend build
+frontend/node_modules/
+frontend/dist/
+/.claude/launch.json

@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useAppStore } from '../stores/useAppStore'
 import { PdfViewer } from './pdf/PdfViewer'
@@ -6,7 +7,20 @@ import { VerificationPanel } from './VerificationPanel'
 export function AnalysisView() {
   const fileName = useAppStore((s) => s.fileName)
   const citations = useAppStore((s) => s.citations)
-  const reset = useAppStore((s) => s.reset)
+  const currentProjectId = useAppStore((s) => s.currentProjectId)
+  const goToProjectDetail = useAppStore((s) => s.goToProjectDetail)
+
+  // Fetch citations when entering analysis view
+  useEffect(() => {
+    if (!currentProjectId) return
+    // Load citations from the backend
+    fetch(`/api/projects/${currentProjectId}/citations`)
+      .then((r) => r.json())
+      .then((data) => {
+        useAppStore.setState({ citations: data.citations })
+      })
+      .catch(() => {})
+  }, [currentProjectId])
 
   return (
     <motion.div
@@ -19,7 +33,7 @@ export function AnalysisView() {
       {/* Top bar */}
       <div className="flex items-center gap-4 px-6 py-3 border-b border-white/10 bg-white/[0.02]">
         <button
-          onClick={reset}
+          onClick={goToProjectDetail}
           className="text-gray-400 hover:text-white transition-colors text-sm flex items-center gap-1"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

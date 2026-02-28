@@ -1,6 +1,7 @@
 import { AnimatePresence } from 'framer-motion'
 import { useAppStore } from './stores/useAppStore'
-import { UploadScreen } from './components/UploadScreen'
+import { ProjectListScreen } from './components/ProjectListScreen'
+import { ProjectDetailScreen } from './components/ProjectDetailScreen'
 import { AnalysisView } from './components/AnalysisView'
 
 export default function App() {
@@ -9,11 +10,9 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[var(--color-bg-primary)]">
       <AnimatePresence mode="wait">
-        {screen === 'upload' ? (
-          <UploadScreen key="upload" />
-        ) : (
-          <AnalysisView key="analysis" />
-        )}
+        {screen === 'projects' && <ProjectListScreen key="projects" />}
+        {screen === 'project-detail' && <ProjectDetailScreen key="detail" />}
+        {screen === 'analysis' && <AnalysisView key="analysis" />}
       </AnimatePresence>
     </div>
   )

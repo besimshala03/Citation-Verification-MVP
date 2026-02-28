@@ -3,7 +3,7 @@ import { Document, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
 import { useAppStore } from '../../stores/useAppStore'
-import { getFileUrl } from '../../api/client'
+import { getDocumentUrl } from '../../api/client'
 import { PdfPage } from './PdfPage'
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -12,7 +12,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 ).toString()
 
 export function PdfViewer() {
-  const fileId = useAppStore((s) => s.fileId)
+  const currentProjectId = useAppStore((s) => s.currentProjectId)
   const [numPages, setNumPages] = useState<number>(0)
   const containerRef = useRef<HTMLDivElement>(null)
   const [pageWidth, setPageWidth] = useState<number>(500)
@@ -28,12 +28,12 @@ export function PdfViewer() {
     return () => observer.disconnect()
   }, [])
 
-  if (!fileId) return null
+  if (!currentProjectId) return null
 
   return (
     <div ref={containerRef} className="flex flex-col items-center py-6 px-4 gap-6">
       <Document
-        file={getFileUrl(fileId)}
+        file={getDocumentUrl(currentProjectId)}
         onLoadSuccess={({ numPages }) => setNumPages(numPages)}
         loading={
           <div className="flex items-center justify-center h-64">

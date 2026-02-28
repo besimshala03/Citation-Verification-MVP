@@ -6,6 +6,10 @@ import re
 # Handles: https://doi.org/..., http://doi.org/..., doi:...
 _DOI_URL_RE = re.compile(r'https?://doi\.org/\S+|doi:\s*\S+', re.IGNORECASE)
 
+# Matches bare DOIs like: 10.1109/ASONAM49781.2020.9381415
+# Works whether preceded by "doi:", "https://doi.org/", or just whitespace.
+_DOI_RE = re.compile(r"\b(10\.\d{4,}(?:\.\d+)*/\S+)")
+
 
 def match_citation(author: str, year: str, bibliography_text: str | None) -> str | None:
     """Find the bibliography entry matching the given author and year.
@@ -22,7 +26,7 @@ def match_citation(author: str, year: str, bibliography_text: str | None) -> str
     if not bibliography_text:
         return None
 
-    entries = _parse_entries(bibliography_text)
+    entries = parse_entries(bibliography_text)
     surname = _extract_primary_surname(author)
 
     surname_pattern = re.compile(r'\b' + re.escape(surname) + r'\b', re.IGNORECASE)
@@ -33,7 +37,7 @@ def match_citation(author: str, year: str, bibliography_text: str | None) -> str
     return None
 
 
-def _parse_entries(bibliography_text: str) -> list[str]:
+def parse_entries(bibliography_text: str) -> list[str]:
     """Split bibliography text into individual entries.
 
     Uses three strategies in order:
@@ -116,6 +120,50 @@ def _split_by_author_pattern(text: str) -> list[str]:
         text,
     )
     return [p.strip() for p in parts if p.strip()] or [text]
+
+
+def parse_entry_metadata(entry_text: str) -> dict:
+    """Extract structured metadata from a bibliography entry for display.
+
+    Returns dict with keys: parsed_author, parsed_year, parsed_title.
+    All values are best-effort heuristic extractions.
+    """
+    # Extract year (first 4-digit number that looks like a publication year)
+    year_match = re.search(r'\b((?:19|20)\d{2})\b', entry_text)
+    parsed_year = year_match.group(1) if year_match else None
+
+    # Extract primary author (text before the first comma or period)
+    author_match = re.match(
+        r'^([A-Z\u00C0-\u024F][a-zA-Z\u00C0-\u024F\-\']+)', entry_text
+    )
+    parsed_author = author_match.group(1) if author_match else None
+
+    # Extract title heuristic: text after year in parens/period, before next period
+    # Common APA pattern: Author, A. (2020). Title of the paper. Journal...
+    title_match = re.search(r'\(\d{4}[a-z]?\)\.\s*(.+?)\.', entry_text)
+    if not title_match:
+        # Alternate pattern: year followed by period then title
+        title_match = re.search(r'\d{4}[a-z]?\.\s*(.+?)\.', entry_text)
+    parsed_title = title_match.group(1).strip() if title_match else None
+
+    return {
+        "parsed_author": parsed_author,
+        "parsed_year": parsed_year,
+        "parsed_title": parsed_title,
+    }
+
+
+def extract_doi(entry_text: str) -> str | None:
+    """Extract a DOI from a bibliography entry string.
+
+    Handles: https://doi.org/10.xxxx/..., doi:10.xxxx/..., or bare 10.xxxx/...
+    Returns the bare DOI (e.g., "10.1234/foo") or None.
+    """
+    match = _DOI_RE.search(entry_text)
+    if not match:
+        return None
+    doi = match.group(1).rstrip(".,;)")
+    return doi
 
 
 def _extract_primary_surname(author: str) -> str:

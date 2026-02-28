@@ -15,6 +15,7 @@ export function ProjectDetailScreen() {
   const uploadingEntryId = useAppStore((s) => s.uploadingEntryId)
   const goToProjects = useAppStore((s) => s.goToProjects)
   const goToAnalysis = useAppStore((s) => s.goToAnalysis)
+  const appError = useAppStore((s) => s.appError)
 
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -27,6 +28,14 @@ export function ProjectDetailScreen() {
       const ext = file.name.toLowerCase()
       if (!ext.endsWith('.pdf') && !ext.endsWith('.docx')) {
         setError('Only PDF and DOCX files are supported.')
+        return
+      }
+      if (file.type && !['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(file.type)) {
+        setError('Unsupported MIME type for document upload.')
+        return
+      }
+      if (file.size > 20 * 1024 * 1024) {
+        setError('Main document exceeds the 20MB size limit.')
         return
       }
       setError(null)
@@ -167,6 +176,9 @@ export function ProjectDetailScreen() {
           {error && (
             <p className="text-red-400 text-xs mt-2">{error}</p>
           )}
+          {appError && (
+            <p className="text-red-400 text-xs mt-2">{appError}</p>
+          )}
           {warning && (
             <p className="text-yellow-400/80 text-xs mt-2">{warning}</p>
           )}
@@ -237,6 +249,21 @@ function ReferenceCard({
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0]
       if (file) {
+        if (!file.name.toLowerCase().endsWith('.pdf')) {
+          setUploadError('Only PDF files are supported.')
+          e.target.value = ''
+          return
+        }
+        if (file.type && file.type !== 'application/pdf') {
+          setUploadError('Unsupported MIME type for reference PDF upload.')
+          e.target.value = ''
+          return
+        }
+        if (file.size > 50 * 1024 * 1024) {
+          setUploadError('Reference PDF exceeds the 50MB size limit.')
+          e.target.value = ''
+          return
+        }
         setUploadError(null)
         try {
           await onUpload(file)

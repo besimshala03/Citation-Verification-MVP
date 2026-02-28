@@ -82,7 +82,7 @@ export interface VerificationResult {
   bibliography_match: string | null
   paper_found: boolean
   paper_metadata: PaperMetadata | null
-  source_type: 'pdf' | 'not_uploaded'
+  source_type: 'pdf' | 'not_uploaded' | 'not_found'
   matched_passage: string | null
   evaluation: Evaluation
 }

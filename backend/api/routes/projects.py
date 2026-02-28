@@ -1,0 +1,72 @@
+"""Project routes."""
+
+from __future__ import annotations
+
+import sqlite3
+
+from fastapi import APIRouter, Depends, HTTPException
+
+from backend.config import settings
+from backend.db.connection import get_db_connection
+from backend.db import repository as repo
+from backend.models.schemas import CreateProjectRequest
+
+router = APIRouter()
+
+
+@router.post("/projects")
+async def create_project(
+    req: CreateProjectRequest,
+    conn: sqlite3.Connection = Depends(get_db_connection),
+):
+    name = req.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Project name cannot be empty.")
+    if len(name) > settings.project_name_max_length:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Project name must be <= {settings.project_name_max_length} characters.",
+        )
+    return repo.create_project(name, conn=conn)
+
+
+@router.get("/projects")
+async def list_projects(conn: sqlite3.Connection = Depends(get_db_connection)):
+    return {"projects": repo.list_projects(conn=conn)}
+
+
+@router.get("/projects/{project_id}")
+async def get_project(project_id: str, conn: sqlite3.Connection = Depends(get_db_connection)):
+    project = repo.get_project(project_id, conn=conn)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found.")
+
+    document = repo.get_document(project_id, conn=conn)
+    references = repo.list_reference_entries(project_id, conn=conn)
+    citations = repo.list_citations(project_id, conn=conn)
+
+    return {
+        "id": project["id"],
+        "name": project["name"],
+        "created_at": project["created_at"],
+        "updated_at": project["updated_at"],
+        "document": (
+            {"id": document["id"], "filename": document["filename"]}
+            if document
+            else None
+        ),
+        "reference_entries": references,
+        "citation_count": len(citations),
+        "warning": None,
+    }
+
+
+@router.delete("/projects/{project_id}")
+async def delete_project(
+    project_id: str,
+    conn: sqlite3.Connection = Depends(get_db_connection),
+):
+    deleted = repo.delete_project(project_id, conn=conn)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Project not found.")
+    return {"deleted": True}

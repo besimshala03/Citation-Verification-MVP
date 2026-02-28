@@ -6,6 +6,7 @@ import {
   deleteReferencePaper as apiDeleteReferencePaper,
   getProjectDetail as apiGetProjectDetail,
   listProjects as apiListProjects,
+  listCitations as apiListCitations,
   listReferences as apiListReferences,
   uploadDocument as apiUploadDocument,
   uploadReferencePaper as apiUploadReferencePaper,
@@ -36,6 +37,7 @@ interface AppState {
 
   // Upload tracking
   uploadingEntryId: number | null
+  appError: string | null
 
   // Actions — Projects
   fetchProjects: () => Promise<void>
@@ -48,6 +50,7 @@ interface AppState {
   uploadReferencePaper: (entryId: number, file: File) => Promise<void>
   deleteReferencePaper: (entryId: number) => Promise<void>
   refreshReferences: () => Promise<void>
+  fetchCitations: () => Promise<void>
 
   // Actions — Analysis
   goToAnalysis: () => void
@@ -75,6 +78,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   verificationResults: {},
   loadingCitationId: null,
   uploadingEntryId: null,
+  appError: null,
 
   // --- Projects ---
 
@@ -82,49 +86,70 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ loadingProjects: true })
     try {
       const projects = await apiListProjects()
-      set({ projects, loadingProjects: false })
-    } catch {
-      set({ loadingProjects: false })
+      set({ projects, loadingProjects: false, appError: null })
+    } catch (e) {
+      set({
+        loadingProjects: false,
+        appError: e instanceof Error ? e.message : 'Failed to load projects',
+      })
     }
   },
 
   createProject: async (name: string) => {
-    const project = await apiCreateProject(name)
-    // Navigate to the new project
-    set({
-      screen: 'project-detail',
-      currentProjectId: project.id,
-      currentProjectName: project.name,
-      documentId: null,
-      fileName: null,
-      referenceEntries: [],
-      citations: [],
-      warning: null,
-      verificationResults: {},
-      selectedCitationId: null,
-    })
+    try {
+      const project = await apiCreateProject(name)
+      // Navigate to the new project
+      set({
+        screen: 'project-detail',
+        currentProjectId: project.id,
+        currentProjectName: project.name,
+        documentId: null,
+        fileName: null,
+        referenceEntries: [],
+        citations: [],
+        warning: null,
+        verificationResults: {},
+        selectedCitationId: null,
+        appError: null,
+      })
+    } catch (e) {
+      set({ appError: e instanceof Error ? e.message : 'Failed to create project' })
+      throw e
+    }
   },
 
   deleteProject: async (projectId: string) => {
-    await apiDeleteProject(projectId)
-    // Refresh list
-    get().fetchProjects()
+    try {
+      await apiDeleteProject(projectId)
+      // Refresh list
+      get().fetchProjects()
+      set({ appError: null })
+    } catch (e) {
+      set({ appError: e instanceof Error ? e.message : 'Failed to delete project' })
+      throw e
+    }
   },
 
   openProject: async (projectId: string) => {
-    const detail = await apiGetProjectDetail(projectId)
-    set({
-      screen: 'project-detail',
-      currentProjectId: detail.id,
-      currentProjectName: detail.name,
-      documentId: detail.document?.id || null,
-      fileName: detail.document?.filename || null,
-      referenceEntries: detail.reference_entries,
-      warning: detail.warning,
-      verificationResults: {},
-      selectedCitationId: null,
-      loadingCitationId: null,
-    })
+    try {
+      const detail = await apiGetProjectDetail(projectId)
+      set({
+        screen: 'project-detail',
+        currentProjectId: detail.id,
+        currentProjectName: detail.name,
+        documentId: detail.document?.id || null,
+        fileName: detail.document?.filename || null,
+        referenceEntries: detail.reference_entries,
+        warning: detail.warning,
+        verificationResults: {},
+        selectedCitationId: null,
+        loadingCitationId: null,
+        appError: null,
+      })
+    } catch (e) {
+      set({ appError: e instanceof Error ? e.message : 'Failed to open project' })
+      throw e
+    }
   },
 
   // --- Document & References ---
@@ -132,6 +157,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   uploadDocument: async (file: File) => {
     const { currentProjectId } = get()
     if (!currentProjectId) return
+
+    if (file.size > 20 * 1024 * 1024) {
+      throw new Error('Main document exceeds the 20MB size limit')
+    }
 
     const data = await apiUploadDocument(currentProjectId, file)
     set({
@@ -142,6 +171,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       citations: [],
       verificationResults: {},
       selectedCitationId: null,
+      appError: null,
     })
   },
 
@@ -149,15 +179,25 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { currentProjectId } = get()
     if (!currentProjectId) return
 
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      throw new Error('Only PDF files are accepted for reference papers')
+    }
+    if (file.size > 50 * 1024 * 1024) {
+      throw new Error('Reference PDF exceeds the 50MB size limit')
+    }
+
     set({ uploadingEntryId: entryId })
     try {
       await apiUploadReferencePaper(currentProjectId, entryId, file)
       // Refresh reference list
       const refs = await apiListReferences(currentProjectId)
-      set({ referenceEntries: refs, uploadingEntryId: null })
-    } catch {
-      set({ uploadingEntryId: null })
-      throw new Error('Failed to upload reference paper')
+      set({ referenceEntries: refs, uploadingEntryId: null, appError: null })
+    } catch (e) {
+      set({
+        uploadingEntryId: null,
+        appError: e instanceof Error ? e.message : 'Failed to upload reference paper',
+      })
+      throw (e instanceof Error ? e : new Error('Failed to upload reference paper'))
     }
   },
 
@@ -167,14 +207,28 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     await apiDeleteReferencePaper(currentProjectId, entryId)
     const refs = await apiListReferences(currentProjectId)
-    set({ referenceEntries: refs })
+    set({ referenceEntries: refs, appError: null })
   },
 
   refreshReferences: async () => {
     const { currentProjectId } = get()
     if (!currentProjectId) return
     const refs = await apiListReferences(currentProjectId)
-    set({ referenceEntries: refs })
+    set({ referenceEntries: refs, appError: null })
+  },
+
+  fetchCitations: async () => {
+    const { currentProjectId } = get()
+    if (!currentProjectId) return
+
+    try {
+      const citations = await apiListCitations(currentProjectId)
+      set({ citations, appError: null })
+    } catch (e) {
+      set({
+        appError: e instanceof Error ? e.message : 'Failed to load citations',
+      })
+    }
   },
 
   // --- Analysis ---
@@ -206,9 +260,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       set((state) => ({
         verificationResults: { ...state.verificationResults, [id]: result },
         loadingCitationId: null,
+        appError: null,
       }))
-    } catch {
-      set({ loadingCitationId: null })
+    } catch (e) {
+      set({
+        loadingCitationId: null,
+        appError: e instanceof Error ? e.message : 'Failed to verify citation',
+      })
     }
   },
 
@@ -227,6 +285,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       verificationResults: {},
       selectedCitationId: null,
       loadingCitationId: null,
+      appError: null,
     })
   },
 
@@ -253,6 +312,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       verificationResults: {},
       loadingCitationId: null,
       uploadingEntryId: null,
+      appError: null,
     }),
 }))
 

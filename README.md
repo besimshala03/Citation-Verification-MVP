@@ -1,6 +1,6 @@
 # Citation Verification MVP
 
-A minimal viable product that verifies whether citations in an academic document are supported by the cited source. Upload a PDF or DOCX containing Harvard-style citations, and the system will attempt to locate the referenced papers, find relevant passages, and assess whether each citation is supported.
+A minimal viable product that verifies whether citations in an academic document are supported by uploaded source papers. Upload a PDF or DOCX containing Harvard-style citations, upload reference PDFs, and the system extracts relevant passages and assesses support.
 
 ## How It Works
 
@@ -8,18 +8,15 @@ A minimal viable product that verifies whether citations in an academic document
 2. **Section splitting** — separates main text from the bibliography
 3. **Citation detection** — finds Harvard-style citations via regex
 4. **Bibliography matching** — links each citation to its bibliography entry
-5. **Paper lookup** — searches [OpenAlex](https://openalex.org) for the cited paper
-6. **Paper retrieval** — downloads open-access PDFs (or falls back to the abstract)
-7. **Semantic matching** — finds the most relevant passage using sentence embeddings
-8. **LLM evaluation** — classifies whether the source supports the claim
+5. **Reference paper upload** — user uploads cited source PDFs
+6. **Paper text extraction** — parses uploaded reference PDFs
+7. **LLM evaluation** — classifies whether the source supports the claim
 
 ## Tech Stack
 
 - Python 3.10+
 - FastAPI + Uvicorn
 - pypdf / python-docx for document parsing
-- OpenAlex API for paper lookup
-- sentence-transformers (`all-MiniLM-L6-v2`) for semantic similarity
 - OpenAI API for LLM evaluation
 
 ## Setup
@@ -127,14 +124,14 @@ curl -X POST -F "file=@your-paper.pdf" http://localhost:8000/analyze
 ## Project Structure
 
 ```
-main.py                  — FastAPI app and pipeline orchestration
-file_processing.py       — PDF/DOCX text extraction, section splitting
-citation_detection.py    — Harvard citation regex detection
-bibliography_parser.py   — Citation-to-bibliography matching
-paper_lookup.py          — OpenAlex API search
-paper_processing.py      — PDF download and text extraction
-semantic_matching.py     — Text chunking, embeddings, cosine similarity
-evaluation.py            — LLM prompt construction and response parsing
+main.py                                — compatibility entrypoint (`uvicorn main:app`)
+backend/app.py                         — FastAPI app wiring
+backend/api/routes/                    — route modules (projects/documents/references/citations)
+backend/services/text_extraction.py    — shared PDF extraction
+backend/services/document_ingestion.py — upload-document pipeline helpers
+backend/services/evaluation.py         — LLM evaluation
+backend/db/repository.py               — persistence layer
+frontend/                              — React + TypeScript frontend
 ```
 
 ## Known Limitations

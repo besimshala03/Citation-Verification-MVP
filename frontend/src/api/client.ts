@@ -1,4 +1,5 @@
 import type {
+  Citation,
   DocumentUploadResponse,
   Project,
   ProjectDetail,
@@ -114,4 +115,11 @@ export async function verifyCitation(
   })
   if (!res.ok) throw await extractError(res)
   return res.json()
+}
+
+export async function listCitations(projectId: string): Promise<Citation[]> {
+  const res = await fetch(`${BASE}/projects/${projectId}/citations`)
+  if (!res.ok) throw await extractError(res)
+  const data = await res.json()
+  return data.citations
 }

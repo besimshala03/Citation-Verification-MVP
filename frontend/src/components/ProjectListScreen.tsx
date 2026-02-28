@@ -10,6 +10,7 @@ export function ProjectListScreen() {
   const createProject = useAppStore((s) => s.createProject)
   const deleteProjectAction = useAppStore((s) => s.deleteProject)
   const openProject = useAppStore((s) => s.openProject)
+  const appError = useAppStore((s) => s.appError)
 
   const [showCreate, setShowCreate] = useState(false)
   const [newName, setNewName] = useState('')
@@ -21,7 +22,7 @@ export function ProjectListScreen() {
   }, [fetchProjects])
 
   const handleCreate = useCallback(async () => {
-    if (!newName.trim()) return
+    if (!newName.trim() || newName.trim().length > 120) return
     setCreating(true)
     try {
       await createProject(newName.trim())
@@ -82,12 +83,12 @@ export function ProjectListScreen() {
                          text-white text-sm placeholder-gray-500 outline-none
                          focus:border-amber-400/50 transition-colors"
             />
-            <button
-              onClick={handleCreate}
-              disabled={creating || !newName.trim()}
-              className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-black font-medium
+                <button
+                  onClick={handleCreate}
+                  disabled={creating || !newName.trim() || newName.trim().length > 120}
+                  className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-black font-medium
                          text-sm rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
+                >
               {creating ? 'Creating...' : 'Create'}
             </button>
             <button
@@ -114,6 +115,11 @@ export function ProjectListScreen() {
 
       {/* Project list */}
       <div className="w-full max-w-2xl space-y-3">
+        {appError && (
+          <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+            {appError}
+          </div>
+        )}
         {loadingProjects && projects.length === 0 ? (
           <div className="flex justify-center py-12">
             <div className="w-8 h-8 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />

@@ -9,18 +9,14 @@ export function AnalysisView() {
   const citations = useAppStore((s) => s.citations)
   const currentProjectId = useAppStore((s) => s.currentProjectId)
   const goToProjectDetail = useAppStore((s) => s.goToProjectDetail)
+  const fetchCitations = useAppStore((s) => s.fetchCitations)
+  const appError = useAppStore((s) => s.appError)
 
   // Fetch citations when entering analysis view
   useEffect(() => {
     if (!currentProjectId) return
-    // Load citations from the backend
-    fetch(`/api/projects/${currentProjectId}/citations`)
-      .then((r) => r.json())
-      .then((data) => {
-        useAppStore.setState({ citations: data.citations })
-      })
-      .catch(() => {})
-  }, [currentProjectId])
+    fetchCitations()
+  }, [currentProjectId, fetchCitations])
 
   return (
     <motion.div
@@ -47,6 +43,11 @@ export function AnalysisView() {
           {citations.length} citation{citations.length !== 1 ? 's' : ''}
         </span>
       </div>
+      {appError && (
+        <div className="px-6 py-2 text-sm text-red-300 bg-red-500/10 border-b border-red-500/20">
+          {appError}
+        </div>
+      )}
 
       {/* Split layout */}
       <div className="flex-1 flex overflow-hidden">

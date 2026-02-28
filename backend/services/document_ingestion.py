@@ -14,6 +14,7 @@ from backend.services.bibliography_parser import (
     parse_entry_metadata,
 )
 from backend.services.citation_detection import detect_citations
+from backend.services.document_summary import generate_document_summary
 from backend.services.file_processing import extract_text, split_sections
 
 _ALLOWED_MAIN_MIME = {
@@ -54,6 +55,7 @@ def _save_document(
     full_text: str,
     main_text: str,
     bibliography_text: str | None,
+    summary: str | None,
 ) -> dict:
     return repo.save_document(
         project_id=project_id,
@@ -62,6 +64,7 @@ def _save_document(
         full_text=full_text,
         main_text=main_text,
         bibliography_text=bibliography_text,
+        summary=summary,
         conn=conn,
     )
 
@@ -143,6 +146,7 @@ async def ingest_document(
         )
 
     main_text, bibliography_text = split_sections(full_text)
+    document_summary = generate_document_summary(main_text)
 
     doc = _save_document(
         conn,
@@ -152,6 +156,7 @@ async def ingest_document(
         full_text,
         main_text,
         bibliography_text,
+        document_summary,
     )
 
     ref_entries_created, warning = _process_bibliography(
@@ -174,5 +179,6 @@ async def ingest_document(
         "filename": filename,
         "citation_count": len(saved_citations),
         "reference_entries": ref_entries_created,
+        "document_summary": document_summary,
         "warning": warning,
     }

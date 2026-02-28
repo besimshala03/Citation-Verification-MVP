@@ -48,7 +48,7 @@ async def verify_citation(
         raise HTTPException(status_code=404, detail="Citation not found.")
 
     try:
-        result = process_citation_local(conn, citation)
+        result = process_citation_local(conn, citation, project_id)
         repo.save_verification_result(
             citation_id=citation["id"],
             project_id=project_id,

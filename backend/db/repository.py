@@ -49,6 +49,7 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
                 full_text TEXT,
                 main_text TEXT,
                 bibliography_text TEXT,
+                summary TEXT,
                 uploaded_at TEXT NOT NULL
             );
 
@@ -98,9 +99,17 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
             );
             """
         )
+        _ensure_documents_summary_column(c)
         c.commit()
         if close_after:
             return
+
+
+def _ensure_documents_summary_column(conn: sqlite3.Connection) -> None:
+    cols = conn.execute("PRAGMA table_info(documents)").fetchall()
+    names = {row[1] for row in cols}
+    if "summary" not in names:
+        conn.execute("ALTER TABLE documents ADD COLUMN summary TEXT")
 
 
 def _touch_project(conn: sqlite3.Connection, project_id: str) -> None:
@@ -177,6 +186,7 @@ def save_document(
     full_text: str,
     main_text: str,
     bibliography_text: str | None,
+    summary: str | None = None,
     conn: sqlite3.Connection | None = None,
 ) -> dict:
     doc_id = str(uuid.uuid4())
@@ -193,9 +203,19 @@ def save_document(
     with _conn_scope(conn) as (c, _):
         c.execute("DELETE FROM documents WHERE project_id = ?", (project_id,))
         c.execute(
-            """INSERT INTO documents (id, project_id, filename, disk_path, full_text, main_text, bibliography_text, uploaded_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-            (doc_id, project_id, filename, str(disk_path), full_text, main_text, bibliography_text, now),
+            """INSERT INTO documents (id, project_id, filename, disk_path, full_text, main_text, bibliography_text, summary, uploaded_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                doc_id,
+                project_id,
+                filename,
+                str(disk_path),
+                full_text,
+                main_text,
+                bibliography_text,
+                summary,
+                now,
+            ),
         )
         _touch_project(c, project_id)
         c.commit()

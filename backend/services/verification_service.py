@@ -8,7 +8,11 @@ from backend.db import repository as repo
 from backend.services.evaluation import evaluate_support
 
 
-def process_citation_local(conn: sqlite3.Connection, citation: dict) -> dict:
+def process_citation_local(
+    conn: sqlite3.Connection,
+    citation: dict,
+    project_id: str,
+) -> dict:
     ref_entry_id = citation.get("reference_entry_id")
     if not ref_entry_id:
         return _build_result(
@@ -42,6 +46,9 @@ def process_citation_local(conn: sqlite3.Connection, citation: dict) -> dict:
             confidence=0.0,
         )
 
+    doc = repo.get_document(project_id, conn=conn)
+    document_summary = doc.get("summary") if doc else None
+
     eval_result = evaluate_support(
         citing_paragraph=citation["citing_paragraph"],
         matched_passage=None,
@@ -51,6 +58,7 @@ def process_citation_local(conn: sqlite3.Connection, citation: dict) -> dict:
         paper_title=ref_paper.get("filename", "Unknown"),
         source_type="pdf",
         paper_text=paper_text,
+        document_summary=document_summary,
     )
 
     return _build_result(

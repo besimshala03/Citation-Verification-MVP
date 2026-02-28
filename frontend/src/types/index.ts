@@ -26,6 +26,7 @@ export interface DocumentUploadResponse {
   filename: string
   citation_count: number
   reference_entries: ReferenceEntry[]
+  document_summary?: string | null
   warning: string | null
 }
 
@@ -38,6 +39,7 @@ export interface ProjectDetail {
   } | null
   reference_entries: ReferenceEntry[]
   citation_count: number
+  document_summary?: string | null
   warning: string | null
 }
 

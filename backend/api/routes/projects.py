@@ -57,6 +57,7 @@ async def get_project(project_id: str, conn: sqlite3.Connection = Depends(get_db
         ),
         "reference_entries": references,
         "citation_count": len(citations),
+        "document_summary": (document.get("summary") if document else None),
         "warning": None,
     }
 

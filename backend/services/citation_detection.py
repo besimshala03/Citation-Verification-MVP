@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from backend.config import settings
+
 
 @dataclass
 class CitationOccurrence:
@@ -66,13 +68,14 @@ def detect_citations(text: str) -> list[CitationOccurrence]:
             matched_spans.append((m.start(), m.end()))
             inner = m.group(1)
             full_bracket = m.group(0)
+            local_context = _extract_local_context(paragraph, m.start(), m.end())
             for author, year in _split_multi_citations(inner):
                 results.append(
                     CitationOccurrence(
                         citation_text=full_bracket,
                         author=author,
                         year=year,
-                        citing_paragraph=paragraph,
+                        citing_paragraph=local_context,
                     )
                 )
 
@@ -85,7 +88,7 @@ def detect_citations(text: str) -> list[CitationOccurrence]:
                     citation_text=m.group(0),
                     author=m.group(1).strip(),
                     year=m.group(2),
-                    citing_paragraph=paragraph,
+                    citing_paragraph=_extract_local_context(paragraph, m.start(), m.end()),
                 )
             )
 
@@ -98,7 +101,7 @@ def detect_citations(text: str) -> list[CitationOccurrence]:
                     citation_text=m.group(0),
                     author=m.group(1).strip(),
                     year=m.group(2),
-                    citing_paragraph=paragraph,
+                    citing_paragraph=_extract_local_context(paragraph, m.start(), m.end()),
                 )
             )
 
@@ -125,3 +128,58 @@ def _overlaps(start: int, end: int, spans: list[tuple[int, int]]) -> bool:
         if start < e and end > s:
             return True
     return False
+
+
+def _extract_local_context(paragraph: str, span_start: int, span_end: int) -> str:
+    sentence_spans = _sentence_spans(paragraph)
+    if not sentence_spans:
+        return _clip(paragraph.strip(), settings.citation_context_max_chars)
+
+    target_idx = 0
+    for i, (s, e) in enumerate(sentence_spans):
+        if span_start < e and span_end > s:
+            target_idx = i
+            break
+
+    # Always include exactly one sentence before and one sentence after when available.
+    before = (
+        paragraph[sentence_spans[target_idx - 1][0] : sentence_spans[target_idx - 1][1]].strip()
+        if target_idx - 1 >= 0
+        else None
+    )
+    target = paragraph[sentence_spans[target_idx][0] : sentence_spans[target_idx][1]].strip()
+    after = (
+        paragraph[sentence_spans[target_idx + 1][0] : sentence_spans[target_idx + 1][1]].strip()
+        if target_idx + 1 < len(sentence_spans)
+        else None
+    )
+
+    parts: list[str] = []
+    if before:
+        parts.append(before)
+    parts.append(f"[CLAIM_SENTENCE]{target}[/CLAIM_SENTENCE]")
+    if after:
+        parts.append(after)
+
+    return _clip(" ".join(parts), settings.citation_context_max_chars)
+
+
+def _sentence_spans(text: str) -> list[tuple[int, int]]:
+    # Lightweight sentence segmentation suitable for noisy PDF text.
+    spans: list[tuple[int, int]] = []
+    start = 0
+    for m in re.finditer(r"[.!?](?:\s+|$)", text):
+        end = m.end()
+        if end > start:
+            spans.append((start, end))
+        start = end
+    if start < len(text):
+        spans.append((start, len(text)))
+    return [(s, e) for s, e in spans if text[s:e].strip()]
+
+
+def _clip(value: str, max_chars: int) -> str:
+    if max_chars <= 0 or len(value) <= max_chars:
+        return value
+    clipped = value[:max_chars].rstrip()
+    return f"{clipped}..."

@@ -28,6 +28,7 @@ class LoginRequest(BaseModel):
 class UserSchema(BaseModel):
     id: str
     email: str
+    is_verified: bool
     created_at: str
 
 
@@ -35,6 +36,24 @@ class AuthResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserSchema
+
+
+class RegisterResponse(BaseModel):
+    message: str
+    email: str
+
+
+class VerifyEmailRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+    code: str = Field(min_length=4, max_length=12)
+
+
+class ResendVerificationRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+
+
+class MessageResponse(BaseModel):
+    message: str
 
 
 class EvaluationSchema(BaseModel):

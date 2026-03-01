@@ -10,8 +10,10 @@ import {
   listCitations as apiListCitations,
   listReferences as apiListReferences,
   login as apiLogin,
+  resendVerification as apiResendVerification,
   register as apiRegister,
   setAuthToken,
+  verifyEmail as apiVerifyEmail,
   uploadDocument as apiUploadDocument,
   uploadReferencePaper as apiUploadReferencePaper,
   verifyCitation as apiVerifyCitation,
@@ -45,12 +47,15 @@ interface AppState {
   authUser: User | null
   authToken: string | null
   authLoading: boolean
+  pendingVerificationEmail: string | null
 
   // Actions — Projects
   fetchProjects: () => Promise<void>
   initializeAuth: () => Promise<void>
   login: (email: string, password: string) => Promise<void>
   register: (email: string, password: string) => Promise<void>
+  verifyEmail: (email: string, code: string) => Promise<void>
+  resendVerification: (email: string) => Promise<void>
   logout: () => void
   createProject: (name: string) => Promise<void>
   deleteProject: (projectId: string) => Promise<void>
@@ -93,6 +98,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   authUser: null,
   authToken: null,
   authLoading: false,
+  pendingVerificationEmail: null,
 
   initializeAuth: async () => {
     const token = localStorage.getItem('auth_token')
@@ -123,10 +129,15 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({
         authToken: data.access_token,
         authUser: data.user,
+        pendingVerificationEmail: null,
         appError: null,
       })
     } catch (e) {
-      set({ appError: e instanceof Error ? e.message : 'Login failed' })
+      const msg = e instanceof Error ? e.message : 'Login failed'
+      set({
+        appError: msg,
+        pendingVerificationEmail: msg.includes('Email not verified') ? email.trim() : null,
+      })
       throw e
     } finally {
       set({ authLoading: false })
@@ -137,15 +148,45 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ authLoading: true })
     try {
       const data = await apiRegister(email, password)
+      set({
+        pendingVerificationEmail: data.email,
+        appError: data.message,
+      })
+    } catch (e) {
+      set({ appError: e instanceof Error ? e.message : 'Registration failed' })
+      throw e
+    } finally {
+      set({ authLoading: false })
+    }
+  },
+
+  verifyEmail: async (email: string, code: string) => {
+    set({ authLoading: true })
+    try {
+      const data = await apiVerifyEmail(email, code)
       localStorage.setItem('auth_token', data.access_token)
       setAuthToken(data.access_token)
       set({
         authToken: data.access_token,
         authUser: data.user,
+        pendingVerificationEmail: null,
         appError: null,
       })
     } catch (e) {
-      set({ appError: e instanceof Error ? e.message : 'Registration failed' })
+      set({ appError: e instanceof Error ? e.message : 'Email verification failed' })
+      throw e
+    } finally {
+      set({ authLoading: false })
+    }
+  },
+
+  resendVerification: async (email: string) => {
+    set({ authLoading: true })
+    try {
+      const data = await apiResendVerification(email)
+      set({ appError: data.message })
+    } catch (e) {
+      set({ appError: e instanceof Error ? e.message : 'Failed to resend verification code' })
       throw e
     } finally {
       set({ authLoading: false })
@@ -158,6 +199,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       authToken: null,
       authUser: null,
+      pendingVerificationEmail: null,
       screen: 'projects',
       projects: [],
       currentProjectId: null,
@@ -410,6 +452,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       authUser: null,
       authToken: null,
       authLoading: false,
+      pendingVerificationEmail: null,
     }),
 }))
 

@@ -53,6 +53,12 @@ Edit `.env` and set your OpenAI API key:
 OPENAI_API_KEY=sk-your-actual-key
 MODEL_NAME=gpt-5.2
 JWT_SECRET_KEY=your-long-random-secret
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USERNAME=your-smtp-user
+SMTP_PASSWORD=your-smtp-password
+SMTP_FROM_EMAIL=no-reply@example.com
+SMTP_USE_TLS=true
 ```
 
 ### 5. Run the server

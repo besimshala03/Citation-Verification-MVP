@@ -28,6 +28,13 @@ class Settings:
     jwt_secret_key: str
     jwt_algorithm: str
     jwt_access_token_expire_minutes: int
+    email_verification_code_expire_minutes: int
+    smtp_host: str | None
+    smtp_port: int
+    smtp_username: str | None
+    smtp_password: str | None
+    smtp_from_email: str | None
+    smtp_use_tls: bool
     log_level: str
 
 
@@ -42,6 +49,13 @@ def _int_env(name: str, default: int) -> int:
         return int(raw)
     except ValueError:
         return default
+
+
+def _bool_env(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
 settings = Settings(
@@ -59,5 +73,14 @@ settings = Settings(
     jwt_secret_key=os.getenv("JWT_SECRET_KEY", "change-me-in-production"),
     jwt_algorithm=os.getenv("JWT_ALGORITHM", "HS256"),
     jwt_access_token_expire_minutes=_int_env("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", 60 * 24),
+    email_verification_code_expire_minutes=_int_env(
+        "EMAIL_VERIFICATION_CODE_EXPIRE_MINUTES", 15
+    ),
+    smtp_host=os.getenv("SMTP_HOST"),
+    smtp_port=_int_env("SMTP_PORT", 587),
+    smtp_username=os.getenv("SMTP_USERNAME"),
+    smtp_password=os.getenv("SMTP_PASSWORD"),
+    smtp_from_email=os.getenv("SMTP_FROM_EMAIL"),
+    smtp_use_tls=_bool_env("SMTP_USE_TLS", True),
     log_level=os.getenv("LOG_LEVEL", "INFO"),
 )

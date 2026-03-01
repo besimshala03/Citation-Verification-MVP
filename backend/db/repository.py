@@ -38,6 +38,10 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
                 id TEXT PRIMARY KEY,
                 email TEXT NOT NULL UNIQUE,
                 password_hash TEXT NOT NULL,
+                is_verified INTEGER NOT NULL DEFAULT 0,
+                verification_code_hash TEXT,
+                verification_expires_at TEXT,
+                verified_at TEXT,
                 created_at TEXT NOT NULL
             );
 
@@ -109,6 +113,7 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
         )
         _ensure_documents_summary_column(c)
         _ensure_projects_owner_column(c)
+        _ensure_users_verification_columns(c)
         c.commit()
         if close_after:
             return
@@ -126,6 +131,19 @@ def _ensure_projects_owner_column(conn: sqlite3.Connection) -> None:
     names = {row[1] for row in cols}
     if "owner_id" not in names:
         conn.execute("ALTER TABLE projects ADD COLUMN owner_id TEXT")
+
+
+def _ensure_users_verification_columns(conn: sqlite3.Connection) -> None:
+    cols = conn.execute("PRAGMA table_info(users)").fetchall()
+    names = {row[1] for row in cols}
+    if "is_verified" not in names:
+        conn.execute("ALTER TABLE users ADD COLUMN is_verified INTEGER NOT NULL DEFAULT 0")
+    if "verification_code_hash" not in names:
+        conn.execute("ALTER TABLE users ADD COLUMN verification_code_hash TEXT")
+    if "verification_expires_at" not in names:
+        conn.execute("ALTER TABLE users ADD COLUMN verification_expires_at TEXT")
+    if "verified_at" not in names:
+        conn.execute("ALTER TABLE users ADD COLUMN verified_at TEXT")
 
 
 def _touch_project(conn: sqlite3.Connection, project_id: str) -> None:

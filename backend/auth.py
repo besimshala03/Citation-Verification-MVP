@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import secrets
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -46,6 +48,21 @@ def create_access_token(user_id: str, email: str) -> str:
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
 
+def generate_verification_code() -> str:
+    return f"{secrets.randbelow(10**6):06d}"
+
+
+def hash_verification_code(code: str) -> str:
+    return hashlib.sha256(code.encode("utf-8")).hexdigest()
+
+
+def verification_expiry_iso() -> str:
+    exp = datetime.now(timezone.utc) + timedelta(
+        minutes=settings.email_verification_code_expire_minutes
+    )
+    return exp.isoformat()
+
+
 def decode_access_token(token: str) -> dict[str, Any]:
     try:
         payload = jwt.decode(
@@ -66,12 +83,14 @@ def get_user_from_token_string(token: str, conn: sqlite3.Connection) -> dict:
     if not user_id:
         raise AuthError()
     row = conn.execute(
-        "SELECT id, email, created_at FROM users WHERE id = ?",
+        "SELECT id, email, is_verified, created_at FROM users WHERE id = ?",
         (user_id,),
     ).fetchone()
     if not row:
         raise AuthError()
-    return dict(row)
+    user = dict(row)
+    user["is_verified"] = bool(user.get("is_verified"))
+    return user
 
 
 def get_current_user(

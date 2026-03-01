@@ -4,6 +4,7 @@ import type {
   DocumentUploadResponse,
   Project,
   ProjectDetail,
+  RegisterResponse,
   ReferenceEntry,
   ReferenceUploadResponse,
   VerificationResult,
@@ -148,11 +149,31 @@ export async function listCitations(projectId: string): Promise<Citation[]> {
   return data.citations
 }
 
-export async function register(email: string, password: string): Promise<AuthResponse> {
+export async function register(email: string, password: string): Promise<RegisterResponse> {
   const res = await fetch(`${BASE}/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
+  })
+  if (!res.ok) throw await extractError(res)
+  return res.json()
+}
+
+export async function verifyEmail(email: string, code: string): Promise<AuthResponse> {
+  const res = await fetch(`${BASE}/auth/verify-email`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, code }),
+  })
+  if (!res.ok) throw await extractError(res)
+  return res.json()
+}
+
+export async function resendVerification(email: string): Promise<{ message: string }> {
+  const res = await fetch(`${BASE}/auth/resend-verification`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
   })
   if (!res.ok) throw await extractError(res)
   return res.json()
@@ -168,7 +189,7 @@ export async function login(email: string, password: string): Promise<AuthRespon
   return res.json()
 }
 
-export async function getMe(): Promise<{ user: { id: string; email: string; created_at: string } }> {
+export async function getMe(): Promise<{ user: { id: string; email: string; is_verified: boolean; created_at: string } }> {
   const res = await fetch(`${BASE}/auth/me`, { headers: authHeaders() })
   if (!res.ok) throw await extractError(res)
   return res.json()

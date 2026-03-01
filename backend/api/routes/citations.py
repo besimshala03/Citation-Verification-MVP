@@ -7,6 +7,7 @@ import sqlite3
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from backend.auth import get_current_user
 from backend.db import repository as repo
 from backend.db.connection import get_db_connection
 from backend.models.schemas import VerificationResultSchema, VerifyCitationRequest
@@ -20,8 +21,9 @@ logger = logging.getLogger(__name__)
 async def get_citations(
     project_id: str,
     conn: sqlite3.Connection = Depends(get_db_connection),
+    current_user: dict = Depends(get_current_user),
 ):
-    project = repo.get_project(project_id, conn=conn)
+    project = repo.get_project(project_id, owner_id=current_user["id"], conn=conn)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found.")
 
@@ -37,8 +39,9 @@ async def verify_citation(
     project_id: str,
     req: VerifyCitationRequest,
     conn: sqlite3.Connection = Depends(get_db_connection),
+    current_user: dict = Depends(get_current_user),
 ):
-    project = repo.get_project(project_id, conn=conn)
+    project = repo.get_project(project_id, owner_id=current_user["id"], conn=conn)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found.")
 

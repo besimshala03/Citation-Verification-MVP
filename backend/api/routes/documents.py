@@ -8,6 +8,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response
 
+from backend.auth import get_current_user
 from backend.db import repository as repo
 from backend.db.connection import get_db_connection
 from backend.services.document_ingestion import ingest_document
@@ -20,8 +21,9 @@ async def upload_document(
     project_id: str,
     file: UploadFile = File(...),
     conn: sqlite3.Connection = Depends(get_db_connection),
+    current_user: dict = Depends(get_current_user),
 ):
-    project = repo.get_project(project_id, conn=conn)
+    project = repo.get_project(project_id, owner_id=current_user["id"], conn=conn)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found.")
 
@@ -32,7 +34,12 @@ async def upload_document(
 async def serve_document(
     project_id: str,
     conn: sqlite3.Connection = Depends(get_db_connection),
+    current_user: dict = Depends(get_current_user),
 ):
+    project = repo.get_project(project_id, owner_id=current_user["id"], conn=conn)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found.")
+
     doc = repo.get_document(project_id, conn=conn)
     if not doc:
         raise HTTPException(status_code=404, detail="No document uploaded.")

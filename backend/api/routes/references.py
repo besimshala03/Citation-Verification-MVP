@@ -8,6 +8,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response
 
+from backend.auth import get_current_user
 from backend.config import settings
 from backend.db import repository as repo
 from backend.db.connection import get_db_connection
@@ -20,8 +21,9 @@ router = APIRouter()
 async def list_references(
     project_id: str,
     conn: sqlite3.Connection = Depends(get_db_connection),
+    current_user: dict = Depends(get_current_user),
 ):
-    project = repo.get_project(project_id, conn=conn)
+    project = repo.get_project(project_id, owner_id=current_user["id"], conn=conn)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found.")
 
@@ -35,8 +37,9 @@ async def upload_reference_paper(
     entry_id: int,
     file: UploadFile = File(...),
     conn: sqlite3.Connection = Depends(get_db_connection),
+    current_user: dict = Depends(get_current_user),
 ):
-    project = repo.get_project(project_id, conn=conn)
+    project = repo.get_project(project_id, owner_id=current_user["id"], conn=conn)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found.")
 
@@ -80,7 +83,12 @@ async def delete_reference_paper(
     project_id: str,
     entry_id: int,
     conn: sqlite3.Connection = Depends(get_db_connection),
+    current_user: dict = Depends(get_current_user),
 ):
+    project = repo.get_project(project_id, owner_id=current_user["id"], conn=conn)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found.")
+
     entry = repo.get_reference_entry(entry_id, conn=conn)
     if not entry or entry["project_id"] != project_id:
         raise HTTPException(status_code=404, detail="Reference entry not found.")
@@ -96,7 +104,12 @@ async def serve_reference_paper(
     project_id: str,
     entry_id: int,
     conn: sqlite3.Connection = Depends(get_db_connection),
+    current_user: dict = Depends(get_current_user),
 ):
+    project = repo.get_project(project_id, owner_id=current_user["id"], conn=conn)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found.")
+
     paper = repo.get_reference_paper(entry_id, conn=conn)
     if not paper or paper["project_id"] != project_id:
         raise HTTPException(status_code=404, detail="Reference paper not found.")

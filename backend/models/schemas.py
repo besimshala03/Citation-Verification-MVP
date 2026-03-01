@@ -15,6 +15,28 @@ class VerifyCitationRequest(BaseModel):
     citation_id: int
 
 
+class RegisterRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+    password: str = Field(min_length=8, max_length=256)
+
+
+class LoginRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+    password: str = Field(min_length=8, max_length=256)
+
+
+class UserSchema(BaseModel):
+    id: str
+    email: str
+    created_at: str
+
+
+class AuthResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserSchema
+
+
 class EvaluationSchema(BaseModel):
     label: Literal["SUPPORTS", "CONTRADICTS", "NOT_RELEVANT", "UNCERTAIN"]
     explanation: str

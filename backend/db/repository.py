@@ -34,8 +34,16 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
     with _conn_scope(conn) as (c, close_after):
         c.executescript(
             """
+            CREATE TABLE IF NOT EXISTS users (
+                id TEXT PRIMARY KEY,
+                email TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS projects (
                 id TEXT PRIMARY KEY,
+                owner_id TEXT REFERENCES users(id) ON DELETE CASCADE,
                 name TEXT NOT NULL,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
@@ -100,6 +108,7 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
             """
         )
         _ensure_documents_summary_column(c)
+        _ensure_projects_owner_column(c)
         c.commit()
         if close_after:
             return
@@ -112,23 +121,38 @@ def _ensure_documents_summary_column(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE documents ADD COLUMN summary TEXT")
 
 
+def _ensure_projects_owner_column(conn: sqlite3.Connection) -> None:
+    cols = conn.execute("PRAGMA table_info(projects)").fetchall()
+    names = {row[1] for row in cols}
+    if "owner_id" not in names:
+        conn.execute("ALTER TABLE projects ADD COLUMN owner_id TEXT")
+
+
 def _touch_project(conn: sqlite3.Connection, project_id: str) -> None:
     conn.execute("UPDATE projects SET updated_at = ? WHERE id = ?", (_now(), project_id))
 
 
-def create_project(name: str, conn: sqlite3.Connection | None = None) -> dict:
+def create_project(
+    name: str, owner_id: str, conn: sqlite3.Connection | None = None
+) -> dict:
     project_id = str(uuid.uuid4())
     now = _now()
     with _conn_scope(conn) as (c, close_after):
         c.execute(
-            "INSERT INTO projects (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)",
-            (project_id, name, now, now),
+            "INSERT INTO projects (id, owner_id, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+            (project_id, owner_id, name, now, now),
         )
         c.commit()
-    return {"id": project_id, "name": name, "created_at": now, "updated_at": now}
+    return {
+        "id": project_id,
+        "owner_id": owner_id,
+        "name": name,
+        "created_at": now,
+        "updated_at": now,
+    }
 
 
-def list_projects(conn: sqlite3.Connection | None = None) -> list[dict]:
+def list_projects(owner_id: str, conn: sqlite3.Connection | None = None) -> list[dict]:
     with _conn_scope(conn) as (c, _):
         rows = c.execute(
             """
@@ -152,24 +176,37 @@ def list_projects(conn: sqlite3.Connection | None = None) -> list[dict]:
                 FROM citations
                 GROUP BY project_id
             ) cit_stats ON cit_stats.project_id = p.id
+            WHERE p.owner_id = ?
             ORDER BY p.updated_at DESC
             """
+            ,
+            (owner_id,),
         ).fetchall()
     return [dict(row) for row in rows]
 
 
-def get_project(project_id: str, conn: sqlite3.Connection | None = None) -> dict | None:
+def get_project(
+    project_id: str, owner_id: str, conn: sqlite3.Connection | None = None
+) -> dict | None:
     with _conn_scope(conn) as (c, _):
-        row = c.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
+        row = c.execute(
+            "SELECT * FROM projects WHERE id = ? AND owner_id = ?",
+            (project_id, owner_id),
+        ).fetchone()
     return dict(row) if row else None
 
 
-def delete_project(project_id: str, conn: sqlite3.Connection | None = None) -> bool:
+def delete_project(
+    project_id: str, owner_id: str, conn: sqlite3.Connection | None = None
+) -> bool:
     with _conn_scope(conn) as (c, _):
-        row = c.execute("SELECT id FROM projects WHERE id = ?", (project_id,)).fetchone()
+        row = c.execute(
+            "SELECT id FROM projects WHERE id = ? AND owner_id = ?",
+            (project_id, owner_id),
+        ).fetchone()
         if not row:
             return False
-        c.execute("DELETE FROM projects WHERE id = ?", (project_id,))
+        c.execute("DELETE FROM projects WHERE id = ? AND owner_id = ?", (project_id, owner_id))
         c.commit()
 
     project_dir = settings.storage_root / project_id

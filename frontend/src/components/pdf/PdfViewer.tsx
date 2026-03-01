@@ -3,7 +3,7 @@ import { Document, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
 import { useAppStore } from '../../stores/useAppStore'
-import { getDocumentUrl } from '../../api/client'
+import { getAuthToken, getDocumentUrl } from '../../api/client'
 import { PdfPage } from './PdfPage'
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -34,6 +34,9 @@ export function PdfViewer() {
     <div ref={containerRef} className="flex flex-col items-center py-6 px-4 gap-6">
       <Document
         file={getDocumentUrl(currentProjectId)}
+        options={{
+          httpHeaders: getAuthToken() ? { Authorization: `Bearer ${getAuthToken()}` } : {},
+        }}
         onLoadSuccess={({ numPages }) => setNumPages(numPages)}
         loading={
           <div className="flex items-center justify-center h-64">

@@ -6,6 +6,11 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+# Ensure .env is loaded before any settings are read.
+load_dotenv()
+
 
 @dataclass(frozen=True)
 class Settings:
@@ -20,6 +25,9 @@ class Settings:
     project_name_max_length: int
     max_main_document_bytes: int
     max_reference_pdf_bytes: int
+    jwt_secret_key: str
+    jwt_algorithm: str
+    jwt_access_token_expire_minutes: int
     log_level: str
 
 
@@ -48,5 +56,8 @@ settings = Settings(
     project_name_max_length=_int_env("PROJECT_NAME_MAX_LENGTH", 120),
     max_main_document_bytes=_int_env("MAX_MAIN_DOCUMENT_BYTES", 20 * 1024 * 1024),
     max_reference_pdf_bytes=_int_env("MAX_REFERENCE_PDF_BYTES", 50 * 1024 * 1024),
+    jwt_secret_key=os.getenv("JWT_SECRET_KEY", "change-me-in-production"),
+    jwt_algorithm=os.getenv("JWT_ALGORITHM", "HS256"),
+    jwt_access_token_expire_minutes=_int_env("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", 60 * 24),
     log_level=os.getenv("LOG_LEVEL", "INFO"),
 )

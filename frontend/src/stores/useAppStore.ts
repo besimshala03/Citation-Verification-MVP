@@ -1,13 +1,17 @@
 import { create } from 'zustand'
-import type { Citation, Project, ReferenceEntry, VerificationResult } from '../types'
+import type { Citation, Project, ReferenceEntry, User, VerificationResult } from '../types'
 import {
   createProject as apiCreateProject,
   deleteProject as apiDeleteProject,
   deleteReferencePaper as apiDeleteReferencePaper,
   getProjectDetail as apiGetProjectDetail,
+  getMe as apiGetMe,
   listProjects as apiListProjects,
   listCitations as apiListCitations,
   listReferences as apiListReferences,
+  login as apiLogin,
+  register as apiRegister,
+  setAuthToken,
   uploadDocument as apiUploadDocument,
   uploadReferencePaper as apiUploadReferencePaper,
   verifyCitation as apiVerifyCitation,
@@ -38,9 +42,16 @@ interface AppState {
   // Upload tracking
   uploadingEntryId: number | null
   appError: string | null
+  authUser: User | null
+  authToken: string | null
+  authLoading: boolean
 
   // Actions — Projects
   fetchProjects: () => Promise<void>
+  initializeAuth: () => Promise<void>
+  login: (email: string, password: string) => Promise<void>
+  register: (email: string, password: string) => Promise<void>
+  logout: () => void
   createProject: (name: string) => Promise<void>
   deleteProject: (projectId: string) => Promise<void>
   openProject: (projectId: string) => Promise<void>
@@ -79,6 +90,89 @@ export const useAppStore = create<AppState>((set, get) => ({
   loadingCitationId: null,
   uploadingEntryId: null,
   appError: null,
+  authUser: null,
+  authToken: null,
+  authLoading: false,
+
+  initializeAuth: async () => {
+    const token = localStorage.getItem('auth_token')
+    if (!token) {
+      setAuthToken(null)
+      return
+    }
+    set({ authLoading: true })
+    try {
+      setAuthToken(token)
+      const me = await apiGetMe()
+      set({ authToken: token, authUser: me.user, appError: null })
+    } catch {
+      localStorage.removeItem('auth_token')
+      setAuthToken(null)
+      set({ authToken: null, authUser: null })
+    } finally {
+      set({ authLoading: false })
+    }
+  },
+
+  login: async (email: string, password: string) => {
+    set({ authLoading: true })
+    try {
+      const data = await apiLogin(email, password)
+      localStorage.setItem('auth_token', data.access_token)
+      setAuthToken(data.access_token)
+      set({
+        authToken: data.access_token,
+        authUser: data.user,
+        appError: null,
+      })
+    } catch (e) {
+      set({ appError: e instanceof Error ? e.message : 'Login failed' })
+      throw e
+    } finally {
+      set({ authLoading: false })
+    }
+  },
+
+  register: async (email: string, password: string) => {
+    set({ authLoading: true })
+    try {
+      const data = await apiRegister(email, password)
+      localStorage.setItem('auth_token', data.access_token)
+      setAuthToken(data.access_token)
+      set({
+        authToken: data.access_token,
+        authUser: data.user,
+        appError: null,
+      })
+    } catch (e) {
+      set({ appError: e instanceof Error ? e.message : 'Registration failed' })
+      throw e
+    } finally {
+      set({ authLoading: false })
+    }
+  },
+
+  logout: () => {
+    localStorage.removeItem('auth_token')
+    setAuthToken(null)
+    set({
+      authToken: null,
+      authUser: null,
+      screen: 'projects',
+      projects: [],
+      currentProjectId: null,
+      currentProjectName: null,
+      documentId: null,
+      fileName: null,
+      referenceEntries: [],
+      warning: null,
+      citations: [],
+      selectedCitationId: null,
+      verificationResults: {},
+      loadingCitationId: null,
+      uploadingEntryId: null,
+    })
+  },
 
   // --- Projects ---
 
@@ -313,6 +407,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       loadingCitationId: null,
       uploadingEntryId: null,
       appError: null,
+      authUser: null,
+      authToken: null,
+      authLoading: false,
     }),
 }))
 

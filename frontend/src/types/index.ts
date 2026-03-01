@@ -11,6 +11,18 @@ export interface Project {
   citation_count: number
 }
 
+export interface User {
+  id: string
+  email: string
+  created_at: string
+}
+
+export interface AuthResponse {
+  access_token: string
+  token_type: string
+  user: User
+}
+
 export interface ReferenceEntry {
   id: number
   entry_text: string

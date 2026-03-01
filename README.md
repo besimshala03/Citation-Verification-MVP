@@ -52,6 +52,7 @@ Edit `.env` and set your OpenAI API key:
 ```
 OPENAI_API_KEY=sk-your-actual-key
 MODEL_NAME=gpt-5.2
+JWT_SECRET_KEY=your-long-random-secret
 ```
 
 ### 5. Run the server

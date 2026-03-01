@@ -6,6 +6,7 @@ import sqlite3
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from backend.auth import get_current_user
 from backend.config import settings
 from backend.db.connection import get_db_connection
 from backend.db import repository as repo
@@ -18,6 +19,7 @@ router = APIRouter()
 async def create_project(
     req: CreateProjectRequest,
     conn: sqlite3.Connection = Depends(get_db_connection),
+    current_user: dict = Depends(get_current_user),
 ):
     name = req.name.strip()
     if not name:
@@ -27,17 +29,24 @@ async def create_project(
             status_code=400,
             detail=f"Project name must be <= {settings.project_name_max_length} characters.",
         )
-    return repo.create_project(name, conn=conn)
+    return repo.create_project(name, owner_id=current_user["id"], conn=conn)
 
 
 @router.get("/projects")
-async def list_projects(conn: sqlite3.Connection = Depends(get_db_connection)):
-    return {"projects": repo.list_projects(conn=conn)}
+async def list_projects(
+    conn: sqlite3.Connection = Depends(get_db_connection),
+    current_user: dict = Depends(get_current_user),
+):
+    return {"projects": repo.list_projects(owner_id=current_user["id"], conn=conn)}
 
 
 @router.get("/projects/{project_id}")
-async def get_project(project_id: str, conn: sqlite3.Connection = Depends(get_db_connection)):
-    project = repo.get_project(project_id, conn=conn)
+async def get_project(
+    project_id: str,
+    conn: sqlite3.Connection = Depends(get_db_connection),
+    current_user: dict = Depends(get_current_user),
+):
+    project = repo.get_project(project_id, owner_id=current_user["id"], conn=conn)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found.")
 
@@ -66,8 +75,9 @@ async def get_project(project_id: str, conn: sqlite3.Connection = Depends(get_db
 async def delete_project(
     project_id: str,
     conn: sqlite3.Connection = Depends(get_db_connection),
+    current_user: dict = Depends(get_current_user),
 ):
-    deleted = repo.delete_project(project_id, conn=conn)
+    deleted = repo.delete_project(project_id, owner_id=current_user["id"], conn=conn)
     if not deleted:
         raise HTTPException(status_code=404, detail="Project not found.")
     return {"deleted": True}

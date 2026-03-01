@@ -160,8 +160,15 @@ function ResultView({ result }: { result: VerificationResult }) {
 
       {/* Source passage */}
       <div className="glass-card p-4">
-        <div className="text-xs text-gray-500 uppercase tracking-wider mb-2 font-medium">
-          Source Passage
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-xs text-gray-500 uppercase tracking-wider font-medium">
+            Source Passage
+          </div>
+          {result.evidence_page && (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-medium">
+              p. {result.evidence_page}
+            </span>
+          )}
         </div>
         {result.matched_passage ? (
           <p className="text-gray-300 text-sm leading-relaxed max-h-40 overflow-auto">
@@ -169,6 +176,11 @@ function ResultView({ result }: { result: VerificationResult }) {
           </p>
         ) : (
           <p className="text-gray-500 text-sm italic">No passage available</p>
+        )}
+        {result.evidence_why && (
+          <p className="text-gray-400 text-xs mt-3 leading-relaxed">
+            Why this evidence matters: {result.evidence_why}
+          </p>
         )}
       </div>
 

@@ -37,4 +37,6 @@ class VerificationResultSchema(BaseModel):
     paper_metadata: PaperMetadataSchema | None
     source_type: Literal["pdf", "not_uploaded", "not_found"]
     matched_passage: str | None
+    evidence_page: int | None = None
+    evidence_why: str | None = None
     evaluation: EvaluationSchema

@@ -20,12 +20,20 @@ class CitationOccurrence:
 #   (Smith, 2020)
 #   (Smith & Jones, 2019)
 #   (Smith et al., 2020, p. 45)
+#
+# Also supports multi-author narrative forms like:
+#   Pfeffer, Zorbach und Carley (2014)
+_AUTHOR_TOKEN = r"[A-Z\u00C0-\u00D6\u00D8-\u00DE][a-zA-Z\u00C0-\u024F''-]+"
+_AUTHOR_LIST = (
+    rf"{_AUTHOR_TOKEN}"
+    rf"(?:,\s*{_AUTHOR_TOKEN})*"
+    rf"(?:\s+(?:&|and|und)\s+{_AUTHOR_TOKEN})?"
+    rf"(?:\s+et\s+al\.)?"
+)
+
 _PAREN_SINGLE_RE = re.compile(
     r"\("
-    r"([A-Z\u00C0-\u00D6\u00D8-\u00DE][a-zA-Z\u00C0-\u024F''-]+"
-    r"(?:\s+(?:&|and)\s+[A-Z\u00C0-\u00D6\u00D8-\u00DE][a-zA-Z\u00C0-\u024F''-]+)?"
-    r"(?:\s+et\s+al\.)?"
-    r")"
+    rf"({_AUTHOR_LIST})"
     r",\s*"
     r"(\d{4})"
     r"\w?"
@@ -37,10 +45,7 @@ _PAREN_SINGLE_RE = re.compile(
 _PAREN_MULTI_RE = re.compile(r"\(([^)]*\d{4}\w?\s*;\s*[^)]*\d{4}\w?[^)]*)\)")
 
 _SEGMENT_RE = re.compile(
-    r"([A-Z\u00C0-\u00D6\u00D8-\u00DE][a-zA-Z\u00C0-\u024F''-]+"
-    r"(?:\s+(?:&|and)\s+[A-Z\u00C0-\u00D6\u00D8-\u00DE][a-zA-Z\u00C0-\u024F''-]+)?"
-    r"(?:\s+et\s+al\.)?"
-    r")"
+    rf"({_AUTHOR_LIST})"
     r",\s*"
     r"(\d{4})"
     r"\w?"
@@ -49,10 +54,7 @@ _SEGMENT_RE = re.compile(
 
 # Example matched: Smith (2020)
 _NARRATIVE_RE = re.compile(
-    r"([A-Z\u00C0-\u00D6\u00D8-\u00DE][a-zA-Z\u00C0-\u024F''-]+"
-    r"(?:\s+(?:&|and)\s+[A-Z\u00C0-\u00D6\u00D8-\u00DE][a-zA-Z\u00C0-\u024F''-]+)?"
-    r"(?:\s+et\s+al\.)?"
-    r")"
+    rf"({_AUTHOR_LIST})"
     r"\s+\((\d{4})\w?\)"
 )
 

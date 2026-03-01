@@ -116,5 +116,10 @@ def extract_doi(entry_text: str) -> str | None:
 
 def _extract_primary_surname(author: str) -> str:
     name = re.sub(r"\s+et\s+al\.?", "", author)
-    name = re.split(r"\s+(?:&|and)\s+", name)[0]
-    return name.strip()
+    # Handle lists like:
+    #   "Pfeffer, Zorbach und Carley" -> "Pfeffer"
+    #   "Smith and Jones" -> "Smith"
+    #   "Smith & Jones" -> "Smith"
+    first = name.split(",")[0].strip()
+    first = re.split(r"\s+(?:&|and|und)\s+", first)[0]
+    return first.strip()

@@ -86,5 +86,7 @@ export interface VerificationResult {
   paper_metadata: PaperMetadata | null
   source_type: 'pdf' | 'not_uploaded' | 'not_found'
   matched_passage: string | null
+  evidence_page?: number | null
+  evidence_why?: string | null
   evaluation: Evaluation
 }

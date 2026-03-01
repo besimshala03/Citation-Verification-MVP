@@ -11,6 +11,8 @@ export function ProjectListScreen() {
   const deleteProjectAction = useAppStore((s) => s.deleteProject)
   const openProject = useAppStore((s) => s.openProject)
   const appError = useAppStore((s) => s.appError)
+  const authUser = useAppStore((s) => s.authUser)
+  const logout = useAppStore((s) => s.logout)
 
   const [showCreate, setShowCreate] = useState(false)
   const [newName, setNewName] = useState('')
@@ -50,6 +52,18 @@ export function ProjectListScreen() {
       transition={{ duration: 0.4 }}
       className="min-h-screen flex flex-col items-center p-8"
     >
+      <div className="w-full max-w-2xl flex items-center justify-end gap-2 mb-2">
+        <span className="hidden sm:block text-xs text-gray-400 truncate max-w-[220px]">
+          {authUser?.email}
+        </span>
+        <button
+          onClick={logout}
+          className="px-2.5 py-1.5 rounded-lg bg-white/10 text-gray-200 hover:bg-white/20 text-xs"
+        >
+          Logout
+        </button>
+      </div>
+
       {/* Header */}
       <motion.div
         initial={{ y: -20, opacity: 0 }}

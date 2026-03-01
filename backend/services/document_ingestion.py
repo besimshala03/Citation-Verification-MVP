@@ -6,7 +6,6 @@ import sqlite3
 
 from fastapi import HTTPException, UploadFile
 
-from backend.config import settings
 from backend.db import repository as repo
 from backend.services.bibliography_parser import (
     match_citation,
@@ -16,36 +15,7 @@ from backend.services.bibliography_parser import (
 from backend.services.citation_detection import detect_citations
 from backend.services.document_summary import generate_document_summary
 from backend.services.file_processing import extract_text, split_sections
-
-_ALLOWED_MAIN_MIME = {
-    "application/pdf",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-}
-
-
-def _validate_document_upload(file: UploadFile, file_bytes: bytes) -> str:
-    filename = file.filename or ""
-    lower = filename.lower()
-    if not lower.endswith((".pdf", ".docx")):
-        raise HTTPException(
-            status_code=400,
-            detail="Unsupported file format. Only PDF and DOCX files are accepted.",
-        )
-
-    if len(file_bytes) > settings.max_main_document_bytes:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Main document exceeds max size of {settings.max_main_document_bytes} bytes.",
-        )
-
-    if file.content_type and file.content_type not in _ALLOWED_MAIN_MIME:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported MIME type: {file.content_type}",
-        )
-
-    return filename
-
+from backend.services.upload_validation import validate_main_document_upload
 
 def _save_document(
     conn: sqlite3.Connection,
@@ -136,7 +106,11 @@ async def ingest_document(
     file: UploadFile,
 ) -> dict:
     file_bytes = await file.read()
-    filename = _validate_document_upload(file, file_bytes)
+    filename = validate_main_document_upload(
+        filename=file.filename or "",
+        content_type=file.content_type,
+        file_size=len(file_bytes),
+    )
 
     full_text = extract_text(file_bytes, filename)
     if not full_text.strip():

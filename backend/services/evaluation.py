@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from openai import OpenAI
 
 from backend.config import settings
+from backend.services.prompts.verification import SYSTEM_PROMPT, build_user_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -25,37 +26,6 @@ class EvaluationResult:
 
 
 _VALID_LABELS = {"SUPPORTS", "CONTRADICTS", "NOT_RELEVANT", "UNCERTAIN"}
-
-_SYSTEM_PROMPT = """\
-You are an academic citation verification assistant.
-
-You will receive:
-1) A citing context block
-2) Source text from the cited paper
-
-Important:
-- The claim to verify is ONLY the sentence wrapped with [CLAIM_SENTENCE]...[/CLAIM_SENTENCE].
-- Any surrounding sentences are context only and must not be treated as the claim.
-- If tags are missing, use only the sentence that contains the citation mention as the claim.
-- First, extract and internally restate the exact claim from the claim sentence.
-- Then search the source text for evidence addressing that exact claim (same variable, relation, direction, and conditions).
-- Do NOT classify as SUPPORTS based on loose topical similarity.
-- Prefer precise evidence over generic background statements.
-- If the source only partially matches or is ambiguous about the specific claim, return UNCERTAIN.
-
-Return ONLY valid JSON with this exact shape:
-{
-  "label": "SUPPORTS" | "CONTRADICTS" | "NOT_RELEVANT" | "UNCERTAIN",
-  "explanation": "1-3 sentence explanation focused on the exact claim and evidence",
-  "confidence": <float between 0.0 and 1.0>,
-  "relevant_passage": "<verbatim passage up to 500 chars>" | null,
-  "evidence_page": <1-based page number integer> | null,
-  "evidence_why": "1 sentence why the snippet supports/contradicts the claim" | null
-}
-
-Do not add markdown, code fences, or extra keys.
-"""
-
 
 def evaluate_support(
     citing_paragraph: str,
@@ -102,7 +72,7 @@ def evaluate_support(
             confidence=0.0,
         )
 
-    user_prompt = _build_user_prompt(
+    user_prompt = build_user_prompt(
         citing_paragraph,
         source_text,
         source_label,
@@ -113,33 +83,6 @@ def evaluate_support(
     )
     response_text = _call_llm(user_prompt)
     return _parse_llm_response(response_text, paper_pages or [])
-
-
-def _build_user_prompt(
-    citing_paragraph: str,
-    source_text: str,
-    source_label: str,
-    author: str,
-    year: str,
-    paper_title: str | None,
-    document_summary: str | None,
-) -> str:
-    title_str = paper_title or "Unknown"
-    claim_hint = (
-        "The citing context below contains the claim sentence wrapped in "
-        "[CLAIM_SENTENCE] tags. Only that sentence should be evaluated."
-    )
-    return (
-        f"Citation: ({author}, {year})\n"
-        f"Paper title: {title_str}\n\n"
-        f"{claim_hint}\n\n"
-        f"Citing context:\n{citing_paragraph}\n\n"
-        f"Document-level background context (secondary only):\n"
-        f"{document_summary or 'N/A'}\n\n"
-        "Important: The background context is only for domain understanding. "
-        "Do not use it as evidence and do not let it override the claim sentence.\n\n"
-        f"Source ({source_label}):\n{source_text}"
-    )
 
 
 def _build_tagged_page_source(pages: list[str]) -> str:
@@ -156,7 +99,7 @@ def _call_llm(user_prompt: str) -> str | None:
             response = client.chat.completions.create(
                 model=settings.model_name,
                 messages=[
-                    {"role": "system", "content": _SYSTEM_PROMPT},
+                    {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": user_prompt},
                 ],
                 temperature=0,
@@ -171,7 +114,7 @@ def _call_llm(user_prompt: str) -> str | None:
             response = client.chat.completions.create(
                 model=settings.model_name,
                 messages=[
-                    {"role": "system", "content": _SYSTEM_PROMPT},
+                    {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": user_prompt},
                 ],
                 temperature=0,

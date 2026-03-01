@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 import sqlite3
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -11,10 +10,9 @@ from backend.auth import get_current_user
 from backend.db import repository as repo
 from backend.db.connection import get_db_connection
 from backend.models.schemas import VerificationResultSchema, VerifyCitationRequest
-from backend.services.verification_service import build_error_result, process_citation_local
+from backend.services.verification_service import process_citation_local
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
 
 
 @router.get("/projects/{project_id}/citations")
@@ -50,21 +48,17 @@ async def verify_citation(
     if not citation:
         raise HTTPException(status_code=404, detail="Citation not found.")
 
-    try:
-        result = process_citation_local(conn, citation, project_id)
-        repo.save_verification_result(
-            citation_id=citation["id"],
-            project_id=project_id,
-            result={
-                "source_type": result["source_type"],
-                "matched_passage": result["matched_passage"],
-                "label": result["evaluation"]["label"],
-                "explanation": result["evaluation"]["explanation"],
-                "confidence": result["evaluation"]["confidence"],
-            },
-            conn=conn,
-        )
-        return result
-    except Exception:
-        logger.exception("Citation verification failed")
-        return build_error_result(citation, "verification failed")
+    result = process_citation_local(conn, citation, project_id)
+    repo.save_verification_result(
+        citation_id=citation["id"],
+        project_id=project_id,
+        result={
+            "source_type": result["source_type"],
+            "matched_passage": result["matched_passage"],
+            "label": result["evaluation"]["label"],
+            "explanation": result["evaluation"]["explanation"],
+            "confidence": result["evaluation"]["confidence"],
+        },
+        conn=conn,
+    )
+    return result

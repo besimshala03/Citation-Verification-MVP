@@ -18,6 +18,7 @@ class CitationOccurrence:
 
 # Examples matched:
 #   (Smith, 2020)
+#   (Smith 2020)
 #   (Smith & Jones, 2019)
 #   (Smith et al., 2020, p. 45)
 #
@@ -34,7 +35,7 @@ _AUTHOR_LIST = (
 _PAREN_SINGLE_RE = re.compile(
     r"\("
     rf"({_AUTHOR_LIST})"
-    r",\s*"
+    r"(?:,\s*|\s+)"
     r"(\d{4})"
     r"\w?"
     r"(?:,\s*(?:pp?\.\s*[\d\-–]+))?"
@@ -46,7 +47,7 @@ _PAREN_MULTI_RE = re.compile(r"\(([^)]*\d{4}\w?\s*;\s*[^)]*\d{4}\w?[^)]*)\)")
 
 _SEGMENT_RE = re.compile(
     rf"({_AUTHOR_LIST})"
-    r",\s*"
+    r"(?:,\s*|\s+)"
     r"(\d{4})"
     r"\w?"
     r"(?:,\s*(?:pp?\.\s*[\d\-–]+))?"

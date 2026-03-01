@@ -18,6 +18,7 @@ import {
   uploadReferencePaper as apiUploadReferencePaper,
   verifyCitation as apiVerifyCitation,
 } from '../api/client'
+import { frontendConfig } from '../config'
 
 interface AppState {
   // Screen routing
@@ -294,7 +295,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { currentProjectId } = get()
     if (!currentProjectId) return
 
-    if (file.size > 20 * 1024 * 1024) {
+    if (file.size > frontendConfig.maxMainDocumentBytes) {
       throw new Error('Main document exceeds the 20MB size limit')
     }
 
@@ -315,10 +316,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { currentProjectId } = get()
     if (!currentProjectId) return
 
-    if (!file.name.toLowerCase().endsWith('.pdf')) {
+    if (!file.name.toLowerCase().endsWith(frontendConfig.allowedReferenceExtension)) {
       throw new Error('Only PDF files are accepted for reference papers')
     }
-    if (file.size > 50 * 1024 * 1024) {
+    if (file.size > frontendConfig.maxReferencePdfBytes) {
       throw new Error('Reference PDF exceeds the 50MB size limit')
     }
 

@@ -30,8 +30,16 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 async function extractError(res: Response): Promise<Error> {
-  const err = await res.json().catch(() => ({ detail: 'Request failed' }))
-  return new Error(err.detail || 'Request failed')
+  let detail = `Request failed (${res.status})`
+  try {
+    const payload = await res.json()
+    if (typeof payload?.detail === 'string' && payload.detail.trim()) {
+      detail = payload.detail
+    }
+  } catch {
+    // Keep fallback detail when response is not JSON.
+  }
+  return new Error(detail)
 }
 
 // --- Projects ---

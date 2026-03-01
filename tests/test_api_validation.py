@@ -1,16 +1,15 @@
-from fastapi.testclient import TestClient
+import pytest
+from pydantic import ValidationError
 
-from backend.app import app
-
-
-client = TestClient(app)
+from backend.config import settings
+from backend.models.schemas import CreateProjectRequest
 
 
 def test_project_name_empty_rejected():
-    response = client.post("/projects", json={"name": "   "})
-    assert response.status_code == 400
+    with pytest.raises(ValidationError):
+        CreateProjectRequest(name="   ")
 
 
 def test_project_name_too_long_rejected():
-    response = client.post("/projects", json={"name": "x" * 121})
-    assert response.status_code == 422 or response.status_code == 400
+    with pytest.raises(ValidationError):
+        CreateProjectRequest(name="x" * (settings.project_name_max_length + 1))

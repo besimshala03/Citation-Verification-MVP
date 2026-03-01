@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from uuid import uuid4
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 
 from backend.api.routes import auth, citations, documents, projects, references
 from backend.config import settings
 from backend.db import repository as repo
+from backend.errors import install_exception_handlers
 from backend.logging_config import configure_logging
 
 load_dotenv()
@@ -26,12 +29,22 @@ async def lifespan(application: FastAPI):
 
 
 app = FastAPI(title="Citation Verification MVP", lifespan=lifespan)
+install_exception_handlers(app)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def request_id_middleware(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID") or str(uuid4())
+    response: Response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    return response
+
 
 app.include_router(projects.router)
 app.include_router(documents.router)

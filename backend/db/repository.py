@@ -200,7 +200,12 @@ def list_projects(owner_id: str, conn: sqlite3.Connection | None = None) -> list
             ,
             (owner_id,),
         ).fetchall()
-    return [dict(row) for row in rows]
+    projects: list[dict] = []
+    for row in rows:
+        item = dict(row)
+        item["has_document"] = bool(item.get("has_document"))
+        projects.append(item)
+    return projects
 
 
 def get_project(

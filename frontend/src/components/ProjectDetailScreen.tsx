@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../stores/useAppStore'
+import { frontendConfig } from '../config'
 import type { ReferenceEntry } from '../types'
 
 export function ProjectDetailScreen() {
@@ -16,6 +17,8 @@ export function ProjectDetailScreen() {
   const goToProjects = useAppStore((s) => s.goToProjects)
   const goToAnalysis = useAppStore((s) => s.goToAnalysis)
   const appError = useAppStore((s) => s.appError)
+  const authUser = useAppStore((s) => s.authUser)
+  const logout = useAppStore((s) => s.logout)
 
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -26,15 +29,20 @@ export function ProjectDetailScreen() {
   const handleDocUpload = useCallback(
     async (file: File) => {
       const ext = file.name.toLowerCase()
-      if (!ext.endsWith('.pdf') && !ext.endsWith('.docx')) {
+      if (!frontendConfig.allowedMainExtensions.some((suffix) => ext.endsWith(suffix))) {
         setError('Only PDF and DOCX files are supported.')
         return
       }
-      if (file.type && !['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(file.type)) {
+      if (
+        file.type &&
+        !frontendConfig.allowedMainMimeTypes.includes(
+          file.type as (typeof frontendConfig.allowedMainMimeTypes)[number],
+        )
+      ) {
         setError('Unsupported MIME type for document upload.')
         return
       }
-      if (file.size > 20 * 1024 * 1024) {
+      if (file.size > frontendConfig.maxMainDocumentBytes) {
         setError('Main document exceeds the 20MB size limit.')
         return
       }
@@ -95,24 +103,38 @@ export function ProjectDetailScreen() {
         <h2 className="text-gray-200 text-sm font-medium truncate flex-1">
           {currentProjectName}
         </h2>
-        {documentId && (
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="hidden lg:block text-xs text-gray-400 max-w-[220px] truncate">
+            {authUser?.email}
+          </span>
           <button
-            onClick={goToAnalysis}
-            disabled={uploadedCount === 0}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all
-              ${uploadedCount > 0
-                ? 'bg-amber-500 hover:bg-amber-400 text-black'
-                : 'bg-white/5 text-gray-600 cursor-not-allowed'
-              }`}
-            title={uploadedCount === 0 ? 'Upload at least one reference paper to analyze' : ''}
+            onClick={logout}
+            className="px-2.5 py-1.5 rounded-lg bg-white/10 text-gray-200 hover:bg-white/20 text-xs"
           >
-            Analyze ({uploadedCount}/{referenceEntries.length} ready)
+            Logout
           </button>
-        )}
+        </div>
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-6 max-w-4xl mx-auto w-full">
+        {documentId && (
+          <div className="flex justify-end mb-4">
+            <button
+              onClick={goToAnalysis}
+              disabled={uploadedCount === 0}
+              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all
+                ${uploadedCount > 0
+                  ? 'bg-amber-500 hover:bg-amber-400 text-black'
+                  : 'bg-white/5 text-gray-600 cursor-not-allowed'
+                }`}
+              title={uploadedCount === 0 ? 'Upload at least one reference paper to analyze' : ''}
+            >
+              Analyze ({uploadedCount}/{referenceEntries.length} ready)
+            </button>
+          </div>
+        )}
+
         {/* Document section */}
         <section className="mb-8">
           <h3 className="text-xs text-gray-500 uppercase tracking-wider font-medium mb-3">
@@ -249,17 +271,17 @@ function ReferenceCard({
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0]
       if (file) {
-        if (!file.name.toLowerCase().endsWith('.pdf')) {
+        if (!file.name.toLowerCase().endsWith(frontendConfig.allowedReferenceExtension)) {
           setUploadError('Only PDF files are supported.')
           e.target.value = ''
           return
         }
-        if (file.type && file.type !== 'application/pdf') {
+        if (file.type && file.type !== frontendConfig.allowedReferenceMimeType) {
           setUploadError('Unsupported MIME type for reference PDF upload.')
           e.target.value = ''
           return
         }
-        if (file.size > 50 * 1024 * 1024) {
+        if (file.size > frontendConfig.maxReferencePdfBytes) {
           setUploadError('Reference PDF exceeds the 50MB size limit.')
           e.target.value = ''
           return

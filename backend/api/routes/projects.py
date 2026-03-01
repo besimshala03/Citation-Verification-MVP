@@ -7,7 +7,6 @@ import sqlite3
 from fastapi import APIRouter, Depends, HTTPException
 
 from backend.auth import get_current_user
-from backend.config import settings
 from backend.db.connection import get_db_connection
 from backend.db import repository as repo
 from backend.models.schemas import CreateProjectRequest
@@ -21,15 +20,7 @@ async def create_project(
     conn: sqlite3.Connection = Depends(get_db_connection),
     current_user: dict = Depends(get_current_user),
 ):
-    name = req.name.strip()
-    if not name:
-        raise HTTPException(status_code=400, detail="Project name cannot be empty.")
-    if len(name) > settings.project_name_max_length:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Project name must be <= {settings.project_name_max_length} characters.",
-        )
-    return repo.create_project(name, owner_id=current_user["id"], conn=conn)
+    return repo.create_project(req.name, owner_id=current_user["id"], conn=conn)
 
 
 @router.get("/projects")

@@ -84,27 +84,6 @@ def process_citation_local(
     )
 
 
-def build_error_result(citation: dict, error_msg: str) -> dict:
-    return {
-        "citation_text": citation["citation_text"],
-        "author": citation["author"],
-        "year": citation["year"],
-        "citing_paragraph": citation["citing_paragraph"],
-        "bibliography_match": citation.get("bibliography_match"),
-        "paper_found": False,
-        "paper_metadata": None,
-        "source_type": "not_uploaded",
-        "matched_passage": None,
-        "evidence_page": None,
-        "evidence_why": None,
-        "evaluation": {
-            "label": "UNCERTAIN",
-            "explanation": f"Processing error: {error_msg}",
-            "confidence": 0.0,
-        },
-    }
-
-
 def _build_result(
     citation: dict,
     source_type: str,

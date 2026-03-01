@@ -5,7 +5,7 @@ export interface Project {
   name: string
   created_at: string
   updated_at: string
-  has_document: boolean | number
+  has_document: boolean
   reference_count: number
   references_uploaded: number
   citation_count: number

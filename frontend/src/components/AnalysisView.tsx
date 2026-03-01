@@ -11,6 +11,8 @@ export function AnalysisView() {
   const goToProjectDetail = useAppStore((s) => s.goToProjectDetail)
   const fetchCitations = useAppStore((s) => s.fetchCitations)
   const appError = useAppStore((s) => s.appError)
+  const authUser = useAppStore((s) => s.authUser)
+  const logout = useAppStore((s) => s.logout)
 
   // Fetch citations when entering analysis view
   useEffect(() => {
@@ -42,6 +44,15 @@ export function AnalysisView() {
         <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-medium">
           {citations.length} citation{citations.length !== 1 ? 's' : ''}
         </span>
+        <span className="hidden lg:block text-xs text-gray-400 ml-auto max-w-[220px] truncate">
+          {authUser?.email}
+        </span>
+        <button
+          onClick={logout}
+          className="px-2.5 py-1.5 rounded-lg bg-white/10 text-gray-200 hover:bg-white/20 text-xs"
+        >
+          Logout
+        </button>
       </div>
       {appError && (
         <div className="px-6 py-2 text-sm text-red-300 bg-red-500/10 border-b border-red-500/20">

@@ -11,7 +11,6 @@ export default function App() {
   const authUser = useAppStore((s) => s.authUser)
   const authLoading = useAppStore((s) => s.authLoading)
   const initializeAuth = useAppStore((s) => s.initializeAuth)
-  const logout = useAppStore((s) => s.logout)
 
   useEffect(() => {
     initializeAuth()
@@ -31,15 +30,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[var(--color-bg-primary)]">
-      <div className="fixed top-3 right-3 z-50 flex items-center gap-2 text-xs">
-        <span className="text-gray-400">{authUser.email}</span>
-        <button
-          onClick={logout}
-          className="px-2 py-1 rounded bg-white/10 text-gray-200 hover:bg-white/20"
-        >
-          Logout
-        </button>
-      </div>
       <AnimatePresence mode="wait">
         {screen === 'projects' && <ProjectListScreen key="projects" />}
         {screen === 'project-detail' && <ProjectDetailScreen key="detail" />}

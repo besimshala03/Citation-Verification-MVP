@@ -9,10 +9,10 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response
 
 from backend.auth import get_current_user
-from backend.config import settings
 from backend.db import repository as repo
 from backend.db.connection import get_db_connection
 from backend.services.paper_processing import extract_pdf_text
+from backend.services.upload_validation import validate_reference_pdf_upload
 
 router = APIRouter()
 
@@ -47,24 +47,12 @@ async def upload_reference_paper(
     if not entry or entry["project_id"] != project_id:
         raise HTTPException(status_code=404, detail="Reference entry not found.")
 
-    filename = (file.filename or "").strip()
-    if not filename.lower().endswith(".pdf"):
-        raise HTTPException(
-            status_code=400, detail="Only PDF files are accepted for reference papers."
-        )
-
-    if file.content_type and file.content_type != "application/pdf":
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported MIME type: {file.content_type}",
-        )
-
     file_bytes = await file.read()
-    if len(file_bytes) > settings.max_reference_pdf_bytes:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Reference PDF exceeds max size of {settings.max_reference_pdf_bytes} bytes.",
-        )
+    filename = validate_reference_pdf_upload(
+        filename=file.filename or "",
+        content_type=file.content_type,
+        file_size=len(file_bytes),
+    )
 
     extracted_text = extract_pdf_text(file_bytes)
 

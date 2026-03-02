@@ -214,3 +214,26 @@ export async function getMe(): Promise<{ user: { id: string; email: string; is_v
   if (!res.ok) throw await extractError(res)
   return res.json()
 }
+
+// --- Exports ---
+
+export function getExportCsvUrl(projectId: string): string {
+  return `${BASE}/projects/${projectId}/export/csv`
+}
+
+export function getExportPdfUrl(projectId: string): string {
+  return `${BASE}/projects/${projectId}/export/pdf`
+}
+
+export async function downloadExport(url: string, filename: string): Promise<void> {
+  const res = await fetch(url, { headers: authHeaders() })
+  if (!res.ok) throw await extractError(res)
+  const blob = await res.blob()
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(blob)
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(link.href)
+}

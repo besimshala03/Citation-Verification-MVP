@@ -10,7 +10,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 
-from backend.api.routes import auth, citations, documents, projects, references
+from backend.api.routes import auth, citations, documents, exports, projects, references
 from backend.config import settings
 from backend.db import repository as repo
 from backend.errors import install_exception_handlers
@@ -50,4 +50,5 @@ app.include_router(projects.router)
 app.include_router(documents.router)
 app.include_router(references.router)
 app.include_router(citations.router)
+app.include_router(exports.router)
 app.include_router(auth.router)

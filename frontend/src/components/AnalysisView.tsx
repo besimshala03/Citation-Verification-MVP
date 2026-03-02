@@ -1,6 +1,7 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useAppStore } from '../stores/useAppStore'
+import { downloadExport, getExportCsvUrl, getExportPdfUrl } from '../api/client'
 import { PdfViewer } from './pdf/PdfViewer'
 import { VerificationPanel } from './VerificationPanel'
 
@@ -21,6 +22,9 @@ export function AnalysisView() {
   const logout = useAppStore((s) => s.logout)
 
   const allVerified = citations.length > 0 && citations.every((c) => verificationResults[c.id])
+  const hasAnyResults = Object.keys(verificationResults).length > 0
+  const [exportOpen, setExportOpen] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   // Fetch citations when entering analysis view
   useEffect(() => {
@@ -86,6 +90,70 @@ export function AnalysisView() {
             </>
           )}
         </button>
+        {/* Export dropdown */}
+        <div className="relative">
+          <button
+            onClick={() => setExportOpen(!exportOpen)}
+            disabled={!hasAnyResults || exporting}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5
+              ${hasAnyResults
+                ? 'bg-white/10 text-gray-200 hover:bg-white/20'
+                : 'bg-white/5 text-gray-600 cursor-not-allowed'
+              }`}
+            title={hasAnyResults ? 'Export results' : 'Verify citations first to enable export'}
+          >
+            {exporting ? (
+              <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            )}
+            Export
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          {exportOpen && (
+            <div className="absolute right-0 top-full mt-1 bg-gray-800 border border-white/10 rounded-lg shadow-xl z-50 min-w-[140px]">
+              <button
+                onClick={async () => {
+                  if (!currentProjectId) return
+                  setExportOpen(false)
+                  setExporting(true)
+                  try {
+                    await downloadExport(getExportCsvUrl(currentProjectId), 'verification_results.csv')
+                  } catch { /* silently handled */ }
+                  setExporting(false)
+                }}
+                className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/10 rounded-t-lg flex items-center gap-2"
+              >
+                <svg className="w-3.5 h-3.5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Export CSV
+              </button>
+              <button
+                onClick={async () => {
+                  if (!currentProjectId) return
+                  setExportOpen(false)
+                  setExporting(true)
+                  try {
+                    await downloadExport(getExportPdfUrl(currentProjectId), 'verification_results.pdf')
+                  } catch { /* silently handled */ }
+                  setExporting(false)
+                }}
+                className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/10 rounded-b-lg flex items-center gap-2"
+              >
+                <svg className="w-3.5 h-3.5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                Export PDF
+              </button>
+            </div>
+          )}
+        </div>
         <span className="hidden lg:block text-xs text-gray-400 ml-auto max-w-[220px] truncate">
           {authUser?.email}
         </span>

@@ -108,3 +108,10 @@ export interface VerificationResult {
   evidence_why?: string | null
   evaluation: Evaluation
 }
+
+export interface BatchVerificationResponse {
+  results: { citation_id: number; result: VerificationResult }[]
+  total: number
+  verified: number
+  errors: number
+}

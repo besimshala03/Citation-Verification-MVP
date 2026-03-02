@@ -17,6 +17,7 @@ import {
   uploadDocument as apiUploadDocument,
   uploadReferencePaper as apiUploadReferencePaper,
   verifyCitation as apiVerifyCitation,
+  verifyAllCitations as apiVerifyAllCitations,
 } from '../api/client'
 import { frontendConfig } from '../config'
 
@@ -41,6 +42,12 @@ interface AppState {
   selectedCitationId: number | null
   verificationResults: Record<number, VerificationResult>
   loadingCitationId: number | null
+
+  // Batch verification
+  batchVerifying: boolean
+  batchTotal: number
+  batchVerified: number
+  batchErrors: number
 
   // Upload tracking
   uploadingEntryId: number | null
@@ -73,6 +80,7 @@ interface AppState {
   goToAnalysis: () => void
   selectCitation: (id: number) => void
   verifyCitation: (id: number) => Promise<void>
+  verifyAllCitations: () => Promise<void>
 
   // Navigation
   goToProjects: () => void
@@ -94,6 +102,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectedCitationId: null,
   verificationResults: {},
   loadingCitationId: null,
+  batchVerifying: false,
+  batchTotal: 0,
+  batchVerified: 0,
+  batchErrors: 0,
   uploadingEntryId: null,
   appError: null,
   authUser: null,
@@ -376,6 +388,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       selectedCitationId: null,
       verificationResults: {},
       loadingCitationId: null,
+      batchVerifying: false,
+      batchTotal: 0,
+      batchVerified: 0,
+      batchErrors: 0,
     })
   },
 
@@ -403,6 +419,38 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({
         loadingCitationId: null,
         appError: e instanceof Error ? e.message : 'Failed to verify citation',
+      })
+    }
+  },
+
+  verifyAllCitations: async () => {
+    const { currentProjectId, citations, batchVerifying } = get()
+    if (!currentProjectId || batchVerifying) return
+
+    set({
+      batchVerifying: true,
+      batchTotal: citations.length,
+      batchVerified: 0,
+      batchErrors: 0,
+      appError: null,
+    })
+
+    try {
+      const data = await apiVerifyAllCitations(currentProjectId)
+      const newResults: Record<number, any> = { ...get().verificationResults }
+      for (const item of data.results) {
+        newResults[item.citation_id] = item.result
+      }
+      set({
+        verificationResults: newResults,
+        batchVerified: data.verified,
+        batchErrors: data.errors,
+        batchVerifying: false,
+      })
+    } catch (e) {
+      set({
+        batchVerifying: false,
+        appError: e instanceof Error ? e.message : 'Batch verification failed',
       })
     }
   },

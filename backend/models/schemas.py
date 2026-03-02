@@ -127,3 +127,15 @@ class VerificationResultSchema(BaseModel):
     evidence_page: int | None = None
     evidence_why: str | None = None
     evaluation: EvaluationSchema
+
+
+class BatchVerificationItemSchema(BaseModel):
+    citation_id: int
+    result: VerificationResultSchema
+
+
+class BatchVerificationResponse(BaseModel):
+    results: list[BatchVerificationItemSchema]
+    total: int
+    verified: int
+    errors: int

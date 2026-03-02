@@ -1,5 +1,6 @@
 import type {
   AuthResponse,
+  BatchVerificationResponse,
   Citation,
   DocumentUploadResponse,
   Project,
@@ -145,6 +146,17 @@ export async function verifyCitation(
     method: 'POST',
     headers: authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ citation_id: citationId }),
+  })
+  if (!res.ok) throw await extractError(res)
+  return res.json()
+}
+
+export async function verifyAllCitations(
+  projectId: string,
+): Promise<BatchVerificationResponse> {
+  const res = await fetch(`${BASE}/projects/${projectId}/verify-all`, {
+    method: 'POST',
+    headers: authHeaders(),
   })
   if (!res.ok) throw await extractError(res)
   return res.json()

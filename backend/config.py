@@ -36,6 +36,9 @@ class Settings:
     smtp_from_email: str | None
     smtp_use_tls: bool
     log_level: str
+    ocr_enabled: bool
+    ocr_min_chars_threshold: int
+    ocr_language: str
 
 
 _ROOT = Path(__file__).resolve().parent.parent
@@ -83,4 +86,7 @@ settings = Settings(
     smtp_from_email=os.getenv("SMTP_FROM_EMAIL"),
     smtp_use_tls=_bool_env("SMTP_USE_TLS", True),
     log_level=os.getenv("LOG_LEVEL", "INFO"),
+    ocr_enabled=_bool_env("OCR_ENABLED", True),
+    ocr_min_chars_threshold=_int_env("OCR_MIN_CHARS_THRESHOLD", 50),
+    ocr_language=os.getenv("OCR_LANGUAGE", "eng"),
 )
